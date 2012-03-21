@@ -1,0 +1,340 @@
+package org.ensime.isynth.prover.reconstructor
+
+import org.ensime.server.RichPresentationCompiler
+import org.ensime.isynth.prover.trees._
+import org.ensime.isynth.definitions._
+
+import scala.collection.mutable.{Queue}
+
+trait Reconstructors extends Trees {
+ self: RichPresentationCompiler =>
+
+object Reconstructor{
+  def reconstruct(clause:Clause):DefFunction = {
+    val action = clause.action
+    if (action == null){
+      clause.fun()
+    } else {
+      reconstruct(action.base).apply(reconstruct(action.applied), action.index, action.subs)
+    }
+  }
+}
+
+object ReconstructonPrinter{
+  def print(clause:Clause):String = {
+    val action = clause.action
+    if (action != null){
+      "(index = "+action.index +"  subs = "+ action.subs.mkString(",")+" base = "+print(action.base)+"  appl = "+print(action.applied)+")"
+    } else "null"
+  }
+}
+
+
+
+class Action(val base:Clause, val index:Int, val applied:Clause, val subs:Queue[Sub])
+
+/*
+abstract class AbstFunction{
+
+  def apply(that:AbstFunction, index:Int, subs:Queue[Sub]):Function 
+
+  def apply(subs:Queue[Sub]):Unit 
+
+  def print(types:Map[String, String], s:StringBuffer):Unit 
+
+}
+
+abstract class BlankArg(var typ:Term) extends AbstFunction {
+
+  def apply(that:Function, index:Int, subs:Queue[Sub]):Function = {
+    this.apply(subs)
+    this
+  }
+
+  def apply(subs:Queue[Sub]){
+    typ = Sub.apply(typ, subs)
+  }
+
+  def print(types:Map[String, String], s:StringBuffer){
+    s.append("_:")
+    Function.printPoly(typ, types, s)
+  }
+}
+*/
+
+class DefFunction(val definition:ClauseDefinition){ // extends AbstFunction {
+  protected var children:Array[DefFunction] = setChildren()
+  protected var variables:Array[Term] = setVariables()
+  protected var vector:Array[(DefFunction,Int)] = setVector()
+
+  def apply(that:DefFunction, index:Int, subs:Queue[Sub]):DefFunction = index match {
+    case 0 => if (checkVect(1, that)) {
+		if (that.vector.length == 1){
+		  vector(0)._1.children(vector(0)._2) = that
+		  vector = Array(that.vector(0))
+		} else {
+		  throw new Exception("//TODO: support partial order functions 0: ")
+		}
+	      } else {
+		throw new Exception("//TODO: how to create a function")
+	      }
+	      apply(subs)
+	      this
+
+    case 1 => if (checkVect(0, that)) {
+		if (that.vector.length == 0){
+		  vector(0)._1.children(vector(0)._2) = that
+		  vector = null
+		} else {
+		  throw new Exception("//TODO: support partial order functions 1: ")
+		}
+	      } else {
+		throw new Exception("//TODO: how to create a function")
+	      }
+	      apply(subs)
+	      this
+
+    case 2 => vector(0)._1.children(vector(0)._2) = that
+	      vector = null
+	      apply(subs)
+	      this
+
+
+    case 3 => if (checkVect(1, that)) {
+		if (that.vector.length == 1){
+		  vector(0)._1.children(vector(0)._2) = that
+		  vector(0) = that.vector(0)	
+		} else {
+		  //TODO: support partial order functions
+		  throw new Exception("//TODO: support partial order functions 1: ")
+		}	
+	      } else {
+		//TODO: how to create a function
+		throw new Exception("//TODO: how to create a function")
+	      }
+	      apply(subs)
+	      this
+
+    case 4 => if (checkVect(0, that)) {
+		if (that.vector.length == 0){
+		  vector(0)._1.children(vector(0)._2) = that
+		  val newVector = new Array[(DefFunction, Int)](vector.length-1)
+		  for (i <- 0 until (vector.length-1)){
+	            newVector(i) = vector(i+1)
+		  }
+		  vector = newVector
+		} else {
+		  //TODO: support partial order functions
+		  throw new Exception("//TODO: support partial order functions 1: ")
+		}
+	      } else {
+		//TODO: how to create a function
+		throw new Exception("//TODO: how to create a function")
+	      }
+	      apply(subs)
+	      this
+
+    case 5 => vector(0)._1.children(vector(0)._2) = that
+	      val newVector = new Array[(DefFunction, Int)](vector.length-1)
+	      for (i <- 0 until (vector.length-1)){
+	        newVector(i) = vector(i+1)
+	      }
+	      vector = newVector
+	      apply(subs)
+	      this
+
+    case _ => null
+  }
+
+/*
+  def apply(that:DefFunction, index:Int, subs:Queue[Sub]):DefFunction = index match {
+    case 0 => if (checkVect(1, that)) {
+		if (that.vector.length == 1){
+		  vector(0)._1.children(vector(0)._2) = that
+		  vector = Array(that.vector(0))
+		} else {
+		  throw new Exception("//TODO: support partial order functions 0: ")
+		}
+	      } else {
+		throw new Exception("//TODO: how to create a function")
+	      }
+	      apply(subs)
+	      this
+
+    case 1 => if (checkVect(0, that)) {
+		if (that.vector.length == 0){
+		  vector(0)._1.children(vector(0)._2) = that
+		  vector = null
+		} else {
+		  throw new Exception("//TODO: support partial order functions 1: ")
+		}
+	      } else {
+		throw new Exception("//TODO: how to create a function")
+	      }
+	      apply(subs)
+	      this
+
+    case 2 => vector(0)._1.children(vector(0)._2) = that
+	      vector = null
+	      apply(subs)
+	      this
+
+    case 3 => vector(0)._1.children(vector(0)._2) = that
+	      val newVector = new Array[(DefFunction, Int)](vector.length-1)
+	      for (i <- 0 until (vector.length-1)){
+	        newVector(i) = vector(i+1)
+	      }
+	      vector = newVector
+	      apply(subs)
+	      this
+
+    case _ => null
+  }
+*/
+  def apply(subs:Queue[Sub]){
+    for(i <- 0 until variables.length){
+      variables(i) = Sub.apply(variables(i), subs)
+    }
+
+    for(i <- 0 until children.length){
+      val child = children(i)
+      if (child != null) child.apply(subs)
+    }
+  }
+
+  private def checkVect(first:Int, fun:DefFunction) = {
+    val vector = fun.vector
+    var cond = true
+    var i = first
+    while(cond && i < vector.length){
+      cond = vector(i)._1 == fun
+      i+=1
+    }
+    cond
+  }
+
+  private def setVariables() = {
+    val varNames = this.definition.abstPolys
+    val variables = new Array[Term](varNames.size)
+    for(i <- 0 until varNames.size){
+      variables(i) = Variable(varNames(i))
+    }
+    variables
+  }
+
+  private def setChildren() = new Array[DefFunction](this.definition.length)
+
+  private def setVector() = {
+    val vector = new Array[(DefFunction, Int)](children.length)
+    for(i <- 0 until children.length){
+      vector(i) = (this, i)
+    }
+    vector
+  }
+
+  def print(types:Map[String, String], s:StringBuffer){
+    if (this.definition.needReceiver){
+      children(0).print(types, s)
+      if (!this.definition.isApply) appendNameToReceiver(this.definition.prettyName, s)
+      printPolys(types, s)
+      this.definition.printArgs(types, s){
+	for (i <- 1 until children.length) {
+	  if(i != 1) s.append(",")
+	  children(i).print(types, s)
+	}
+      }
+    } else {
+      if (this.definition.isInvisible){
+	this.definition.printArgs(types, s){
+	  for (i <- 0 until children.length) {
+	    if(i != 0) s.append(",")
+	    children(i).print(types, s)
+	  }
+	}
+      } else {
+	appendName(this.definition.prettyName, s)
+	printPolys(types, s)
+	this.definition.printArgs(types, s){
+	  for (i <- 0 until children.length) {
+	    if(i != 0) s.append(",")
+	    children(i).print(types, s)
+	  }
+	}
+      }
+    }
+  }
+
+  def appendName(name:String, s:StringBuffer){
+    if (!isDollarName(name)) { 
+      s.append(name)
+    } else {
+      s.append(dollarFreeName(name))
+    }  
+  }
+
+  def appendNameToReceiver(name:String, s:StringBuffer){
+    if (!isDollarName(name)) { 
+      s.append(".")
+      s.append(name)
+    } else {
+      s.append(".")
+      s.append(dollarFreeName(name))
+    }
+  }
+
+  def isDollarName(name:String) = name.contains("$")
+
+  def dollarFreeName(name:String) = {
+    name.replace("$colon", ":").replace("$amp", "&").replace("$amp", "&").replace("$bar", "&"). replace("$plus","+").replace("$minus", "-").replace("$div", "/").replace("$less"," <").replace("=", "$eq").replace("$greater",">").replace("$percent","%").replace("$times","*").replace("$up", "^").replace("$tilde","~").replace("$hash","#").replace("$bang","!").replace("$bslash","\\").replace("$qmark", "?")
+
+  }
+
+  def printPolys(types:Map[String, String], s:StringBuffer){
+    if(variables.length > 0 && !definition.isTupleConstructor) {
+      s.append("[")
+      for (i <- 0 until variables.length){
+	if(i != 0) s.append(",")
+	DefFunction.printPoly(variables(i), types, s)
+      }
+      s.append("]")
+    }
+  }
+}
+
+object DefFunction {
+  def printPoly(term:Term, types:Map[String, String], s:StringBuffer):Unit = term match{
+    case Const(name) => s.append(niceName(types(name)))
+    case Instance(name, terms) => 
+      WithSugar(name, types, s){
+	for (i <- 0 until terms.size){
+	  if(i != 0) s.append(",")
+	  printPoly(terms(i), types, s)
+	}      
+      }
+    case Arrow(l1, l2) =>
+      printPoly(l1, types, s)
+      s.append("=>")
+      printPoly(l2, types, s)
+//    case _ => s.append("Int")
+//TODO: Fix this bug
+    case _ => throw new Exception("No all variables are instantiatied.")
+  }
+
+  def niceName(s:String) = {
+    val index = s.lastIndexOf(".")
+    if (index == -1) s
+    else s.substring(index + 1)
+  }
+}
+
+object WithSugar{
+  def apply(name:String, types:Map[String, String], s:StringBuffer)(print: =>Unit): Unit = {
+    val realName = types(name)
+    val cond = realName.startsWith(scala.Tuple1.getClass.getName.replace("1$",""))
+    if(!cond) s.append(DefFunction.niceName(realName))
+    s.append(if (cond) "(" else "[")
+    print
+    s.append(if (cond) ")" else "]")
+  }
+}
+}
