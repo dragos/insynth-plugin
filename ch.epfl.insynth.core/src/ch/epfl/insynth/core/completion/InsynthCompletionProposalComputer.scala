@@ -11,13 +11,16 @@ import scala.tools.eclipse.javaelements.ScalaCompilationUnit
 import org.eclipse.jface.text.contentassist.CompletionProposal
 import java.io.FileWriter
 import java.io.BufferedWriter
-import ch.epfl.insynth.library.ISynth
+
 import scala.tools.nsc.interactive.Global
 import scala.tools.nsc.util.SourceFile
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import scala.tools.nsc.util.Position
 import java.io.OutputStreamWriter
+
+//import ch.epfl.insynth.library.ISynth
+import ch.epfl.insynth.InSynth
 
 /* 
 TODO:
@@ -27,8 +30,6 @@ TODO:
 
 class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer {
 
-  
-  
   def sessionStarted() {}
   def sessionEnded() {}
   def getErrorMessage() = null
@@ -47,16 +48,16 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
       case jc: JavaContentAssistInvocationContext => jc.getCompilationUnit match {
         case scu: ScalaCompilationUnit =>
           
-          var oldContent:Array[Char] = scu.getContents 
+          var oldContent:Array[Char] = scu.getContents
           
           scu.withSourceFile {
             (sourceFile, compiler) =>
               if(compiler != InSynthWrapper.compiler){
             	  InSynthWrapper.compiler = compiler
-                  InSynthWrapper.insynth = new ISynth(compiler)
+                  InSynthWrapper.insynth = new InSynth(compiler)
               } else {
             	  if (InSynthWrapper.insynth == null){
-            		  InSynthWrapper.insynth = new ISynth(compiler)
+            		  InSynthWrapper.insynth = new InSynth(compiler)
             	  }
               }
               
@@ -69,13 +70,16 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
             ///(sourceFile, compiler) =>
 
 
-              val results = InSynthWrapper.insynth.getAPISuggestionAt(sourceFile.position(position))
+              val results = InSynthWrapper.insynth.getSnippets(sourceFile.position(position))
               
               val list1:java.util.List[ICompletionProposal] = new java.util.LinkedList[ICompletionProposal]()
+              
+              /*
               results.foreach{
                 x =>
                   list1.add(new InSynthCompletitionProposal(x))
               }
+              */
               
               //compiler.askReload(scu, oldContent)
               //compiler.askToDoFirst(scu)
@@ -122,7 +126,7 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
 
 object InSynthWrapper{
   
-  var insynth:ISynth = null;
+  var insynth:InSynth = null;
   var compiler:Global = null;
   
 }

@@ -180,7 +180,14 @@ trait Collectors {
 
 	for {
 	  decl <- decls
-	  if (!decl.nameString.contains("$") && decl.exists && !decl.isSynthetic && !(this.topClass.isModule && decl.isConstructor) && !decl.isGetter && !decl.isSetter && decl.isValue && !returnsUnit(decl))
+	  if (!decl.nameString.contains("$") && 
+	      decl.exists && 
+	      !decl.isSynthetic &&
+	      !(this.topClass.isModule && decl.isConstructor) &&
+	      !decl.isGetter &&
+	      !decl.isSetter &&
+	      decl.isValue &&  //What was this? I guess with this we get rid of type defs and other junk.
+	      !returnsUnit(decl))
 	} {	  
 	  symbols = (decl, localForbidden.exists(decl.simpleName.toString.replace(" ","").equals)) :: symbols
 	}
@@ -191,14 +198,30 @@ trait Collectors {
 
 	for {
 	  decl <- decls
-	  if (!decl.fullName.equals(this.method.fullName) && !decl.nameString.contains("$") && decl.exists && !decl.isSynthetic && !(this.topClass.isModule && decl.isConstructor) && !decl.isGetter && !decl.isSetter && decl.isValue&& !returnsUnit(decl))
+	  if (!decl.fullName.equals(this.method.fullName) && //we do not allow methodToComplete to appear in decls
+	      !decl.nameString.contains("$") &&
+	      decl.exists &&
+	      !decl.isSynthetic &&
+	      !(this.topClass.isModule && decl.isConstructor) &&
+	      !decl.isGetter &&
+	      !decl.isSetter &&
+	      decl.isValue &&
+	      !returnsUnit(decl))
 	} symbols = (decl, localForbidden.exists(decl.simpleName.toString.replace(" ","").equals)) :: symbols
       } else if (this.fieldCompletition) {
 	val decls = this.topClass.tpe.decls.toList
 
 	for {
 	  decl <- decls
-	  if (!decl.fullName.equals(this.field.fullName) && !decl.nameString.contains("$") && decl.exists && !decl.isSynthetic && !(this.topClass.isModule && decl.isConstructor) && !decl.isGetter && !decl.isSetter && decl.isValue && !returnsUnit(decl))
+	  if (!decl.fullName.equals(this.field.fullName) &&  //we do not allow fieldToComplete to appear in decls
+	      !decl.nameString.contains("$") &&
+	      decl.exists &&
+	      !decl.isSynthetic &&
+	      !(this.topClass.isModule && decl.isConstructor) &&
+	      !decl.isGetter &&
+	      !decl.isSetter &&
+	      decl.isValue &&
+	      !returnsUnit(decl))
 	} symbols = (decl, false) :: symbols
       }
       (symbols, topClass)

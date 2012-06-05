@@ -244,7 +244,144 @@ trait TypeFinders extends Definitions {
       else name
     }
   }
+  
+  class TypePrinter {
 
+    def setAbstType(definition:ClauseDefinition) {
+      if (definition.needReceiver) {
+	    val receiver = definition.receiver
+	    println("Receiver "+ receiver.realName+ " type:")
+	    traverse(receiver.realType)
+	    println()
+      }
+      println("Declaration "+ definition.realName +" type:")
+      traverse(definition.realType)
+      println()
+    }
+
+    protected def traverse(tpe:Type){
+      def makeArrow(args:List[Type]) = args match {
+	    case Nil => throw new Exception("Impossible case in \"makeArrow\"!")
+	    case head :: Nil => 
+	    case head :: tail => 
+      }
+
+      def isFunctionLiteral(sym:Symbol) = {
+	    val nameBeginsWith = scala.Function.getClass.getName.replace("$", "")
+	    val name = sym.fullName
+	    name.startsWith(nameBeginsWith) && isDigit(name.drop(nameBeginsWith.length))
+      }
+
+      def isDigit(str:String) = 
+	    try {
+	      str.toInt
+	      true
+	    } catch {
+	      case _ : java.lang.NumberFormatException => false 
+	    }
+
+      def isRepeated(sym:Symbol) = sym.tpe.typeSymbol.fullName == "scala.<repeated>"
+
+      def isImplicit(sym:Symbol) = sym.isImplicit
+
+     //TODO: add support for "def foo{}" <--- Nullable method. 
+      
+      tpe match {
+
+	    //Method
+	    case MethodType(params: List[Symbol], resultType: Type) =>
+	      print("Method")
+	      
+	      print("(")
+	      params.foreach{
+	        x => 
+	          //print("(")
+	          traverse(x.tpe)
+	          print(",")
+	      }
+	      print(")")
+	      /*
+	      print("Method(")
+	      tpe.paramss.foreach{
+	        x => print("(")
+	             x.foreach{
+	               y =>
+	               traverse(y.tpe)
+	               print(",")
+	             }
+	             print(")")
+	      }
+	      print(")")
+	      */
+	      traverse(resultType)
+	     
+	    //Polymorphic
+	    case PolyType(typeParams: List[Symbol], resultType: Type) =>
+          traverse(resultType)
+	    
+        //Function type
+	    //(Int, Boolean) => Int
+	    case TypeRef(pre: Type, sym: Symbol, args: List[Type])
+	      //if (isFunctionLiteral(sym) && !args.isEmpty) =>
+	      if(definitions.isFunctionType(tpe)) =>
+	      /*print("sym class: "+sym.getClass.getName)
+	      print("sym tpe class: "+sym.tpe.getClass.getName)
+	      print("sym tpe: "+sym.tpeHK)
+	      print("sym name: "+sym.fullName) 
+	      */
+	      
+	      //print("HK sym: "+sym.tpeHK.typeSymbol.fullName)  
+	      
+	      val length = sym.tpeHK.typeParams.length - 1
+	      
+	      print("(")
+	      for (i <- 0 until length){
+	        traverse(args(i))
+	        print(",")
+	      }
+	      print(") => ")
+	      traverse(args(length))
+	      
+	      /*
+	      sym.tpeHK.typeParams.foreach{
+	        x =>
+	          print(x.fullName)
+	          print(",")
+	      }
+	      print(")")
+	      
+	      print("  Args: ")
+          print("(")
+	      args.foreach{
+	        x => print(x)
+	             print(",")
+	      }
+	      print(")")
+	      */
+	      
+	    case TypeRef(pre: Type, sym: Symbol, args: List[Type])
+	      if (!sym.isMonomorphicType && args.length == 1 && sym.fullName == "scala.<byname>")=>
+	        traverse(args(0))
+	      
+	    //Polymorphic instantiated types
+	    //TODO: Make a better check, this one is ugly
+	    case TypeRef(pre: Type, sym: Symbol, args: List[Type])
+	      if (!sym.isMonomorphicType && !args.isEmpty)=>
+	      print(sym.fullName+"[")
+	      args.foreach{
+	        x => traverse(x)
+	             print(",")
+	      }
+	      print("]")
+	      
+	    //Base types
+	    //TODO: Somehow "=> Any" falls here, check this
+	    case TypeRef(pre: Type, sym: Symbol, args: List[Type]) =>
+          print(sym.fullName)
+	    case _ => print("<<Not Supported: "+tpe.getClass.getName+">>")
+      }
+    }
+  }
 
   class InheritanceTypeMaker(typeSystem:CompositeTypeSystem) {
 
@@ -356,5 +493,5 @@ trait TypeFinders extends Definitions {
     }
 
   }
-
 }
+

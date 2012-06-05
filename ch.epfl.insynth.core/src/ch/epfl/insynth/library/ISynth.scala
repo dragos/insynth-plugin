@@ -80,19 +80,25 @@ class ISynth(protected val compiler: Global) extends Loaders with Provers with I
    * Synthesizes an expression at a given position.
    *
    */
-  def getAPISuggestionAt(pos: Position): List[String] = {
+  def getSnippets(pos: Position): List[String] = {
     try {
 
+      println("here1") 
+      
       if (!predefsLoaded){
         loadPredefs()
         predefsLoaded = true
       }
+      
+      println("here2") 
       
       val context = this.loadAllSymbols(pos)
 
       val proverOutput = callProver(context)
 
       filter(pos, context.getTopClass, proverOutput)
+      
+      //List.empty[String]
    } catch {
       case e:Exception =>
 	List.empty[String]
@@ -107,7 +113,7 @@ class ISynth(protected val compiler: Global) extends Loaders with Provers with I
    */
   private def loadAllSymbols(pos:Position):ISynthContext = {
     var tree = wrapTypedTree(pos.source, false)
-    println(tree)
+    //println(tree)
     this.loader.load(pos, tree) //typedTree(pos.source, false))    
   }
 

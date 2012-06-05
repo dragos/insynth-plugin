@@ -33,16 +33,16 @@ trait Loaders extends Contexts with TypeFinders with Collectors {
        *
        */
       def load(pos:Position, tree:Tree):ISynthContext = {
-	//create a new context
-	val context = if (this.predefs != null) this.predefs.createISynthContext() else new ISynthContext(new SimpleRenamer[String, String](new SimpleNameGenerator(Loader.DEF_PREFIX)))
+	    //create a new context
+	    val context = if (this.predefs != null) this.predefs.createISynthContext() else new ISynthContext(new SimpleRenamer[String, String](new SimpleNameGenerator(Loader.DEF_PREFIX)))
 
-	//update the context with definitions visible from a given position
-	this.updateContext(pos, tree, context)
+	    //update the context with definitions visible from a given position
+	    this.updateContext(pos, tree, context)
 
-	//filter the definitions that are forbiden by the black list
-	this.filter(context)
+	    //filter the definitions that are forbiden by the black list
+	    this.filter(context)
 
-	context
+	    context
       }
       
       //Black list filter
@@ -132,14 +132,16 @@ trait Loaders extends Contexts with TypeFinders with Collectors {
 	predefs
       }
 
-      private def updateContext(pos:Position, tree:Tree, context:ISynthContext){
-	val collectedInfo = collector.collect(pos, tree)
-	val typeSystem = context.getTypeSystem
-	val typeFinder = new TypeFinder(typeSystem)
-	
-	if (loadInitialDefs(context, collectedInfo, typeFinder)){
+    private def updateContext(pos:Position, tree:Tree, context:ISynthContext){
+	  val collectedInfo = collector.collect(pos, tree)
+ 	  val typeSystem = context.getTypeSystem
+	  val typeFinder = new TypeFinder(typeSystem)
 	  
-		
+	  if (loadInitialDefs(context, collectedInfo, typeFinder)){
+	    //printClass(collectedInfo)
+	  
+ 
+	    
 	  loadLocals(context, collectedInfo, typeFinder)
 	  loadClass(context, collectedInfo, typeFinder)
 	  loadPackage(context, collectedInfo, typeFinder)
@@ -150,8 +152,9 @@ trait Loaders extends Contexts with TypeFinders with Collectors {
 	  loadSuperclasses(context, collectedInfo, typeFinder)
 	  loadInheritanceDefs(context, collectedInfo, typeFinder)
 	  loadUserDefs(context)
-	}
-      }
+	  
+	  }
+    }
       
       private def loadInitialDefs(context:ISynthContext, collectedInfo:CollectedInfo, typeFinder:TypeFinder):Boolean = {
 	if (collectedInfo.hasDesiredType && collectedInfo.hasTopClass){
@@ -228,9 +231,26 @@ trait Loaders extends Contexts with TypeFinders with Collectors {
 
         context.setClassDefs(decls ++ addInitDef(collectedInfo, context))
       }
+      
+    private def printClass(collectedInfo:CollectedInfo){
+	  var decls = List[ClauseDefinition]()
+	  val (declSymbols, classSymbol) = collectedInfo.getClassSymbols()
+	  val clazz = factory.makeClass(classSymbol)
+
+	  val typePR = new TypePrinter()
+	  
+	  for {
+	    declSymbol <- declSymbols
+	    definition = factory.makeInternalDef(declSymbol._1, clazz, declSymbol._2) 
+	    
+	  } {
+	    typePR.setAbstType(definition)
+	  }
+    }
+      
 
       private def isInitSymbol(collectedInfo:CollectedInfo, decl:Symbol) = {
-	if (collectedInfo.isLocalCompletition) decl.fullName.equals(collectedInfo.getMethod.fullName) else false
+	    if (collectedInfo.isLocalCompletition) decl.fullName.equals(collectedInfo.getMethod.fullName) else false
       }
 
       private def addInitDef(collectedInfo:CollectedInfo, context:ISynthContext) = {
