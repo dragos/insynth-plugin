@@ -25,6 +25,9 @@ abstract class Environment {
 
   def getTypeSet:Set[Type]
   
+  def getClusters = clusters
+  
+  def getParent:Environment
 }
 
 class InitialEnvironment extends Environment {
@@ -48,6 +51,10 @@ class InitialEnvironment extends Environment {
   }
   
   override def getTypeSet = Set.empty[Type]
+  
+  override def getParent = null
+  
+  def getAllDeclarations = clusters.values.toList.map(cluster => cluster.getTypeAssignments.map(ta => ta.getDeclarations).flatten).flatten
 }
 
 class DeltaEnvironment(parent:Environment) extends Environment {
@@ -82,8 +89,25 @@ class DeltaEnvironment(parent:Environment) extends Environment {
     }
   }
 
+  override def getParent = parent
+  
   override def getTypeSet = typeSet
   
+  //TODO: Think about better design and solution
+  override def getTypeAssignments(tpe:Type) = {
+    var cluster = this.getCluster(tpe)
+    var parent = this.getParent
+    while(parent != null && cluster == null) {
+      cluster = parent.getCluster(tpe)
+      parent = parent.getParent
+    }
+      
+    if (cluster != null) {
+      cluster.getTypeAssignments
+    } else List.empty[TypeAssignment]
+  }
+  
+/* Old  
   override def getTypeAssignments(tpe:Type) = {
     val cluster = this.getCluster(tpe)
     if (cluster != null) {
@@ -95,4 +119,5 @@ class DeltaEnvironment(parent:Environment) extends Environment {
       } else List.empty[TypeAssignment]
     }
   }
+*/  
 }

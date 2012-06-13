@@ -85,7 +85,8 @@ class RawData {
   }
   
   def getMostNestedOwnerType = if (hasOwnerTypes) this.ownerTypes.head else null
-
+  def getTopMostOwnerType = if (hasOwnerTypes) this.ownerTypes.last else null
+  
   def hasFieldToComplete = this.fieldToComplete != null
   def getFieldToComplete = this.fieldToComplete
   def setFieldToComplete(field:Symbol){
@@ -136,6 +137,7 @@ class RawData {
     def needReceiver = !inObject && !constructor
     def needParentheses:Boolean = this.symbol.tpe.paramSectionCount != 0
     def isApply = this.symbol.simpleName.toString.equals("apply")
+    def isMethod = symbol.isMethod
   }
     
   class Coerction(subclass:Symbol, superclass:Symbol) {
@@ -148,10 +150,20 @@ class RawData {
   class Data {
     
     //Load all of them
-    private var typeDecls = List.empty[SimpleDecl]
+    private var mostNestedOwnerTypeDecls = List.empty[SimpleDecl]
     
-    //Load only public decls of these classes
-    private var types = List.empty[Symbol]
+    //TODO: Load these
+    //all except the most nested type
+    private var ownerTypes = List.empty[Symbol]
+    
+    //package types
+    private var packageTypes = List.empty[Symbol]
+    
+    //owner types
+    private var importedTypes = List.empty[Symbol]
+    
+    //super types
+    private var superTypes = List.empty[Symbol]
     
     //Load only public decls of these classes
     private var coerctions = List.empty[Coerction]
@@ -165,16 +177,31 @@ class RawData {
     //a user desired type
     private var desiredType:Type = null    
     
-    def getMostNestedOwnerTypeDecls = typeDecls
+    def getMostNestedOwnerTypeDecls = mostNestedOwnerTypeDecls
     def setMostNestedOwnerTypeDecls(typeDecls:List[SimpleDecl]) {
-      this.typeDecls = typeDecls
+      this.mostNestedOwnerTypeDecls = typeDecls
+    }
+    
+    //package types except the top owner type
+    def getPackageTypes = packageTypes
+    def hasPackageTypes = !packageTypes.isEmpty
+    def setPackageTypes(types:List[Symbol]) {
+      this.packageTypes = types
     }
     
     //All except the most nested owner type
-    def getTypes = types
-    def setTypes(types:List[Symbol]) {
-      this.types = types
+    def getImportedTypes = importedTypes
+    def hasImportedTypes = !importedTypes.isEmpty
+    def setImportedTypes(types:List[Symbol]) {
+      this.importedTypes = types
     }
+    
+    //All except the most nested owner type
+    def getSuperTypes = superTypes
+    def hasSuperTypes = !superTypes.isEmpty
+    def setSuperTypes(types:List[Symbol]) {
+      this.superTypes = types
+    }  
     
     def getCoerctions = coerctions
     def setCoerctions(coerctions:List[Coerction]) {
@@ -215,25 +242,47 @@ class RawData {
         val locals = filterLocalDecls(rdata)
         data.setLocals(locals)
 
-        //4) find decls for the most-inner class, some of them may be invisible due to the local decls, or invisible field that needs to be completed and in local completition local val      
-        val tpeDecls = typeSimpleDecls(rdata, locals)
-        data.setMostNestedOwnerTypeDecls(tpeDecls)
-      
-        //5) find "this"
+        var loadedTypes = Set.empty[Symbol]
         
-        if (rdata.hasOwnerTypes) {
+        //4) find decls for the most-inner class, some of them may be invisible due to the local decls, or invisible field that needs to be completed and in local completition local val      
+        if(rdata.hasOwnerTypes){
           val mostNestedOwnerType = rdata.getMostNestedOwnerType
-      
+          
+          loadedTypes += mostNestedOwnerType
+          
+          val tpeDecls = mostNestedOwnerTypeDecls(rdata, locals)
+          data.setMostNestedOwnerTypeDecls(tpeDecls)
+  
           if (!mostNestedOwnerType.isModule){      
             data.setThisType(mostNestedOwnerType.tpe)
           }
+        
+          //6) package types
+          val packagetypes = packageTypes(rdata)
+          loadedTypes ++= packagetypes
+          data.setPackageTypes(packagetypes)
+
+          
+          //What if superTypes are already loaded, should we give them priority over package and imported decls?!
+          val supertypes = superTypes(loadedTypes)
+          data.setSuperTypes(supertypes)
+          
+          loadedTypes ++= supertypes
+          
+          data.setCoerctions(coerctions(loadedTypes))
+         
+          if (rdata.hasImports) {
+            val importedtypes = importedTypes(rdata, loadedTypes)
+            data.setImportedTypes(importedtypes)
+          }
         }
+        
       }
       
       data
     }
     
-    def filterLocalDecls(rdata:RawData) = {
+    private def filterLocalDecls(rdata:RawData) = {
       val locals = rdata.getLocalContext
       val localToComplete = rdata.getLocalToComplete
       
@@ -241,28 +290,98 @@ class RawData {
       else locals
     }
     
-    def typeSimpleDecls(rdata:RawData, locals:List[Symbol]):List[SimpleDecl] = {
-      if (rdata.hasOwnerTypes) {
-        val tpe = rdata.getMostNestedOwnerType
-        var symbols = List[Symbol]()
+    private def mostNestedOwnerTypeDecls(rdata:RawData, locals:List[Symbol]):List[SimpleDecl] = {
+      val tpe = rdata.getMostNestedOwnerType
       
-        val decls = tpe.tpe.decls.toList
+      val decls = tpe.tpe.decls.toList
+        
+      for {
+	    decl <- decls	      
+        if(!decl.nameString.contains("$") && 
+	       decl.exists && 
+	       !decl.isSynthetic &&
+	       !(tpe.isModule && decl.isConstructor) &&
+	       !decl.isGetter &&
+	       !decl.isSetter &&
+	       decl.isValue &&  //What was this? I guess with this we get rid of type defs and other junk.
+	       !TData.returnsUnit(decl))
+      } yield new SimpleDecl(decl, tpe, tpe.isModule, filterTypeDecl(decl, locals, rdata), decl.isConstructor)
+    }
+
+    private def packageTypes(rdata:RawData):List[Symbol] = {
+      var types = List[Symbol]()
+      if(rdata.hasPackage){
+        val pkg = rdata.getPackage
+        val topOwnerType = rdata.getTopMostOwnerType
+        for {
+	      tpe <- pkg.tpe.decls
+	      if (!tpe.nameString.contains("$")
+	          && tpe.exists
+	          && !tpe.fullName.equals(topOwnerType.fullName)
+	          && (tpe.isClass || tpe.isModule || tpe.isAbstractClass || tpe.isTrait)
+	          && !tpe.isSynthetic
+	          && !tpe.isAbstractType
+	          && !tpe.isPackage)
+        } types = tpe :: types
+      }
+      types
+    }
+    
+    private def importedTypes(rdata:RawData, loadedTypes:Set[Symbol]) = {
+      var types = List[Symbol]()
+      if (rdata.hasImports) {
+        val imports = rdata.getImports
         
         for {
-	      decl <- decls
-	      
-          if(!decl.nameString.contains("$") && 
-	          decl.exists && 
-	         !decl.isSynthetic &&
-	         !(tpe.isModule && decl.isConstructor) &&
-	         !decl.isGetter &&
-	         !decl.isSetter &&
-	          decl.isValue &&  //What was this? I guess with this we get rid of type defs and other junk.
-	         !returnsUnit(decl))
-        } yield new SimpleDecl(decl, tpe, tpe.isModule, filterTypeDecl(decl, locals, rdata), decl.isConstructor)
-        
-      } else Nil
+          imp <- imports
+	      tpe <- imp.expr.tpe.decls
+	      if (!tpe.nameString.contains("$")
+	          && tpe.exists
+	          && !loadedTypes.exists(tpe.fullName.equals)
+	          && (tpe.isClass || tpe.isModule || tpe.isAbstractClass || tpe.isTrait)
+	          && !tpe.isSynthetic
+	          && !tpe.isAbstractType
+	          && !tpe.isPackage)
+        } types = tpe :: types
+      }
+      types      
+    }    
+    
+    //TODO: Check if we load all classes 
+    private def superTypes(loadedTypes:Set[Symbol]):List[Symbol] = {
+      var types = Set[Symbol]()
+      var setOfNames = loadedTypes.map(x=>x.fullName)
+      var workingSet = loadedTypes
+
+      while(!workingSet.isEmpty){
+	    var curr = workingSet.head
+	    workingSet = workingSet.tail
+	    
+	    //What "parents" contains?
+	 	val parents = curr.tpe.parents
+	 	
+	    val superTypes = parents.map(x => x.typeSymbol).toSet.filterNot(x => setOfNames.contains(x.fullName))
+	    
+	    workingSet ++= superTypes
+	    setOfNames ++= superTypes.map(x => x.fullName)
+	    
+	    types ++= superTypes
+      }
+      
+      types.toList
     }
+    
+    private def coerctions(loadedTypes:Set[Symbol]):List[Coerction] = {
+      var coercs = List.empty[Coerction]
+      loadedTypes.foreach{
+        subclass =>
+          subclass.tpe.parents.foreach {
+            superclass => coercs = new Coerction(subclass, superclass.typeSymbol) :: coercs
+          }
+      }
+      coercs
+    }
+    
     
     private def filterTypeDecl(decl:Symbol, locals:List[Symbol], rdata:RawData) = {
       !decl.isConstructor && 
@@ -274,13 +393,16 @@ class RawData {
     
     private def simpleName(decl:Symbol) = decl.simpleName.toString.replace(" ", "")
     
+  }
+  
+  object TData{
+  
     private val unitTupe = Unit.getClass.getName.replace(".runtime.",".").replace("$","")
 
-    private def returnsUnit(decl:Symbol) = 
+    def returnsUnit(decl:Symbol) = 
       if (decl.tpe != null &&
-          decl.tpe.resultType != null &&
-          decl.tpe.resultType.typeSymbol != null) decl.tpe.resultType.typeSymbol.fullName.equals(unitTupe)
-	    else false
-
+        decl.tpe.resultType != null &&
+        decl.tpe.resultType.typeSymbol != null) decl.tpe.resultType.typeSymbol.fullName.equals(unitTupe)
+	  else false
   }
 }

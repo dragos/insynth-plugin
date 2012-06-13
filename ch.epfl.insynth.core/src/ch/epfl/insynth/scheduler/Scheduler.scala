@@ -30,8 +30,6 @@ class BFSScheduler extends Scheduler {
   }
   
   def next():TypeAssignment = {
-    Debug("In Scheduler: queue.size = "+queue.size)
-    
     val ta = queue.dequeue()
     ta.getProperties.deactivate()
     ta

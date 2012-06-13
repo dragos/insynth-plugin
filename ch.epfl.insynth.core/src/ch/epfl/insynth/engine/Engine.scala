@@ -8,8 +8,9 @@ import ch.epfl.insynth.env.InitialEnvironmentBuilder
 import ch.epfl.insynth.env.Query
 import ch.epfl.insynth.trees.Type
 import ch.epfl.insynth.env.QueryBuilder
+import ch.epfl.scala.trees.ScalaType
 
-class Engine(builder:InitialEnvironmentBuilder, queryType:Type, scheduler:Scheduler, timeout:TimeOut) {
+class Engine(builder:InitialEnvironmentBuilder, queryType:ScalaType, scheduler:Scheduler, timeout:TimeOut) {
   assert(builder != null && queryType != null && scheduler != null && timeout != null)
   
   def run() = {
@@ -35,7 +36,9 @@ class Engine(builder:InitialEnvironmentBuilder, queryType:Type, scheduler:Schedu
     while(!timeout.hasExpired() && !scheduler.hasFinished()){
       var ta = scheduler.next()
       
-      Debug("In 'Engine.run': ", ta)
+      Debug("In 'Engine.run': "+ta.getDeclarations(0))
+      
+      //println("In 'Engine.run': ")
       
       ta.processRequests(requests)
     }

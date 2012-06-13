@@ -6,26 +6,48 @@ import java.io.FileWriter
 
 object TreePrinter {
  
-  def apply(fileName:String, msg:String){
+  def apply(fileName:String, msg:String, decls:List[Declaration]){
     val out = new PrintWriter(new FileWriter(fileName))
+    
+    out.println("Initial decls: ")
+    decls.foreach{
+      decl => out.println(decl)
+    }
+    
+    out.println
     out.println(msg)
     out.flush
     out.close
   }
   
-  def apply(fileName:String, answer:ContainerNode){
+  def apply(fileName:String, answer:ContainerNode, decls:List[Declaration]){
     val out = new PrintWriter(new FileWriter(fileName))
+    
+    out.println("Initial decls: ")
+    decls.foreach{
+      decl => out.println(decl)
+    }
+    
+    out.println    
     printAnswer(out, answer)
     out.flush
     out.close
   }
   
-  def apply(answer:ContainerNode){
+  def apply(answer:ContainerNode, decls:List[Declaration]){
     val out = new PrintWriter(System.out)
+    
+    out.println("Initial decls: ")
+    decls.foreach{
+      decl => out.println(decl)
+    }
+    
+    out.println
+    
     printAnswer(out, answer)
     out.flush
   }
-  
+ 
   private def printAnswer(out:PrintWriter, answer:ContainerNode) {
     out.println
     out.println("Solution:")

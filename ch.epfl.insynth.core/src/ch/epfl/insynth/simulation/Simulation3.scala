@@ -27,10 +27,10 @@ object Simulation3 {
     builder.addDeclaration("m8", Method(STRINGtoCHAR, Nil, INT))
     builder.addDeclaration("m9", Method(null, List(List(STRING)), CHAR)) 
     
-    val inSynth = new Engine(builder, transform(INT), new BFSScheduler(), TimeOut(timeSlot))
+    val inSynth = new Engine(builder, INT, new BFSScheduler(), TimeOut(timeSlot))
   
     val solution = inSynth.run()
-    if(solution != null) TreePrinter(solution)
+    if(solution != null) TreePrinter(solution, Nil)
     else println("No solution found!")
   }
 }

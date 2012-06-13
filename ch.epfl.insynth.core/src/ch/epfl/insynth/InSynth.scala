@@ -7,6 +7,8 @@ import ch.epfl.insynth.engine.Engine
 import ch.epfl.insynth.util.TimeOut
 import ch.epfl.insynth.scheduler.BFSScheduler
 import ch.epfl.insynth.util.TreePrinter
+import ch.epfl.insynth.reconstruction.Reconstructor
+import ch.epfl.insynth.debug.Debug
 
 class InSynth(val compiler: Global) extends TLoader {
   
@@ -16,18 +18,30 @@ class InSynth(val compiler: Global) extends TLoader {
   
   private val loader = new Loader()
   
-  def getSnippets(pos:Position) {
+  def getSnippets(pos:Position):List[String] = {
+    TreePrinter(config.errorFileName, "", Nil)    
+    
     try {
       var tree = wrapTypedTree(pos.source, false)
       val (desiredType, builder) = loader.load(pos, tree)
     
       val engine = new Engine(builder, desiredType, new BFSScheduler(), TimeOut(config.getTimeOutSlot))
   
+      val initialDecls = builder.getAllDeclarations
+      
       val solution = engine.run()
-      if(solution != null) TreePrinter(config.outputFileName, solution)
-    else TreePrinter(config.outputFileName, "No solution found!")
+            
+      if(solution != null) TreePrinter(config.outputFileName, solution, initialDecls)
+        else TreePrinter(config.outputFileName, "No solution found!", initialDecls)
+
+      if (solution != null){
+        Reconstructor(solution.getNodes.head).map(_.getSnippet)
+      } else Nil
+      
     } catch {
       case ex =>
+        TreePrinter(config.errorFileName, ex.getMessage +"\n"+ ex.getStackTraceString, Nil)
+      Nil
     }
   }
 

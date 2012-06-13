@@ -6,6 +6,7 @@ import ch.epfl.insynth.InSynth
 import ch.epfl.insynth.typetransformations.TExtractor
 import ch.epfl.insynth.trees.TypeTransformer
 import ch.epfl.insynth.trees.{Type => InSynthType}
+import ch.epfl.scala.trees.ScalaType
 
 trait TLoader extends TCollector with TExtractor with TDeclarationFactory {
   self:InSynth =>
@@ -16,7 +17,7 @@ trait TLoader extends TCollector with TExtractor with TDeclarationFactory {
     
     private var collector = new Collector()
     
-    def load(pos:Position, tree:Tree):(InSynthType, InitialEnvironmentBuilder) = {
+    def load(pos:Position, tree:Tree):(ScalaType, InitialEnvironmentBuilder) = {
       val builder = new InitialEnvironmentBuilder()
    
       val queryType = load(pos, tree, builder)
@@ -24,7 +25,11 @@ trait TLoader extends TCollector with TExtractor with TDeclarationFactory {
       (queryType, builder)
     }
   
-    def load(pos:Position, tree:Tree, builder:InitialEnvironmentBuilder):InSynthType = {
+    //TODO: 
+    //(1) Load weights
+    //(2) Load coerctions
+    //(3) Loas subtypes
+    def load(pos:Position, tree:Tree, builder:InitialEnvironmentBuilder):ScalaType = {
       val data = collector.gather(tree, pos)
       
       if (data.hasDesiredType) {
@@ -58,24 +63,67 @@ trait TLoader extends TCollector with TExtractor with TDeclarationFactory {
           sdecl =>
             println(sdecl.getSymbol.fullName)
  
-            val declOption = DeclarationFactory.getOwnerClassDecl(sdecl)
+            val declOption = DeclarationFactory.getDecl(sdecl)
           
             declOption match {
               case Some(decl) => builder.addDeclaration(decl)
               case None => 
             }
-        }
-
+        } 
+        
+        loadDecls(data.getPackageTypes, builder)
+        
+        loadDecls(data.getImportedTypes, builder)
+        
         println("Desired type: "+data.getDesiredType)
                 
-        val desiredTypeOption = ScalaTypeExtractor(data.getDesiredType)
+        val desiredTypeOption = ScalaTypeExtractor.getLocalType(data.getDesiredType)
         
         desiredTypeOption match {
           case Some(desiredType) => 
-            TypeTransformer.transform(desiredType)
+            //TypeTransformer.transform(desiredType)
+            desiredType
           case None => throw new Exception("Desired Type not found in: "+this.getClass.getName)
         }
       } else throw new Exception("Desired Type not found in: "+this.getClass.getName)
+    }
+    
+    private def loadDecls(types:List[Symbol], builder:InitialEnvironmentBuilder){
+/*       for {
+         tpe <- types
+         decl <- tpe.tpe.decls
+         if(!decl.nameString.contains("$") && 
+	        decl.exists)
+       }{
+         val isPublic = decl.isPublic
+         val synthatic = decl.isSynthetic
+         val consInModule = (tpe.isModule && decl.isConstructor)
+	     val getter = decl.isGetter
+	     val setter = decl.isSetter
+	     val value = decl.isValue 
+	     val rUnit = TData.returnsUnit(decl)
+	     val decl1 = decl
+       }      
+*/      
+       for {
+         tpe <- types
+         decl <- tpe.tpe.decls
+         if(!decl.nameString.contains("$") && 
+	        decl.exists &&
+	        decl.isPublic &&
+	        !decl.isSynthetic &&
+	        !(tpe.isModule && decl.isConstructor) &&
+	        !decl.isSetter &&
+	        decl.isValue &&  //What was this? I guess with this we get rid of type defs and other junk.
+	        !TData.returnsUnit(decl))
+        } {
+          val declOption = DeclarationFactory.getDecl(new SimpleDecl(decl, tpe, tpe.isModule, false, decl.isConstructor))
+          
+          declOption match {
+            case Some(decl) => builder.addDeclaration(decl)
+            case None => 
+          }
+        }
     }
   }
 }

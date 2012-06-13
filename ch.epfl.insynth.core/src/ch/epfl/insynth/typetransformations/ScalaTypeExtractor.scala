@@ -10,10 +10,6 @@ trait TExtractor{
   import compiler._  
     
 object ScalaTypeExtractor {
-
-  def apply(tpe:Type) = getType(null, tpe)
-    
-  def apply(receiverType:Type, tpe:Type) = getType(receiverType, tpe)
     
   def getLocalType(tpe:Type):Option[ScalaType] = {
     assert(tpe != null)
@@ -24,8 +20,10 @@ object ScalaTypeExtractor {
         None
     }
   }
+
+  def getType(tpe:Type):Option[ScalaType] = getType(null, tpe)
   
-  private def getType(receiverType:Type, tpe:Type):Option[ScalaType] = {
+  def getType(receiverType:Type, tpe:Type):Option[ScalaType] = {
     assert(tpe != null)
     try {
       Some(ScalaMethod(if (receiverType != null) 
@@ -80,15 +78,34 @@ object ScalaTypeExtractor {
 	  //Polymorphic instantiated types
 	  case TypeRef(pre: Type, sym: Symbol, args: List[Type])
 	    if (!sym.isMonomorphicType && !args.isEmpty)=>
-	      ScalaInstance(sym.fullName, args.map(traverse))
+	      ScalaInstance(SugarFree(sym.fullName), args.map(traverse))
 	     
 	  //Base types
 	  case TypeRef(pre: Type, sym: Symbol, args: List[Type]) =>
-	    if (!sym.isTypeParameter) ScalaConst(sym.fullName)	      
+	    if (!sym.isTypeParameter) ScalaConst(SugarFree(sym.fullName))	      
 	      else throw new Exception("<<Parametrized types not supported: "+tpe.getClass.getName+">>")
 	    
 	  case _ => throw new Exception("<<Not supported: "+tpe.getClass.getName+">>") 
     }
   }  
 }
+  
+  object SugarFree {
+    private val map = Map("scala.Predef.String"        -> "java.lang.String",
+                          "scala.Predef.Set"           -> collection.immutable.Set.getClass.getName.replace("$",""),
+                          "scala.Predef.Map"           -> collection.immutable.Map.getClass.getName.replace("$",""),
+                          "scala.Predef.Manifest"      -> scala.reflect.Manifest.getClass.getName.replace("$",""),
+                          "scala.Predef.ClassManifest" -> scala.reflect.ClassManifest.getClass.getName.replace("$",""),
+                          "scala.Predef.Pair"          -> scala.Tuple2.getClass.getName.replace("$",""),
+                          "scala.Predef.Triple"        -> scala.Tuple3.getClass.getName.replace("$",""),
+                          "scala.Predef.Class"         -> "java.lang.Class")
+
+    def apply(name:String):String = {
+      if (map.contains(name)) map(name)
+      else name
+    }
+  }
+    
+  
+  
 }

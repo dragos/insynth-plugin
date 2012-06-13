@@ -74,12 +74,8 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
               
               val list1:java.util.List[ICompletionProposal] = new java.util.LinkedList[ICompletionProposal]()
               
-              /*
-              results.foreach{
-                x =>
-                  list1.add(new InSynthCompletitionProposal(x))
-              }
-              */
+              results.foreach(x => list1.add(new InSynthCompletitionProposal(x)))
+              
               
               //compiler.askReload(scu, oldContent)
               //compiler.askToDoFirst(scu)

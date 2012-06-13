@@ -44,6 +44,8 @@ class InitialEnvironmentBuilder extends EnvironmentBuilder {
   override protected def getEnv = env
   
   override def produceEnvirionment = env
+  
+  def getAllDeclarations = env.getAllDeclarations
 }
 
 class DeltaEnvironmentBuilder(parent:Environment) extends EnvironmentBuilder {

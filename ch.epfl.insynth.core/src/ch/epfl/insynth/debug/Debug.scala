@@ -1,9 +1,13 @@
 package ch.epfl.insynth.debug
 
 import ch.epfl.insynth.trees.Type
+import java.io.PrintWriter
+import java.io.FileWriter
 
 object Debug{
   final val ON = true
+
+  final val debugFileName = "C:\\Users\\gvero\\insynthDebug.txt"
   
   import ch.epfl.insynth.env._
   
@@ -11,8 +15,7 @@ object Debug{
     if(ON){
       printTA(ta)
     }
-  }
-  
+  }  
   
   def apply(decl:Declaration){
     if(ON){
@@ -22,7 +25,12 @@ object Debug{
   
   def apply(msg:String){
     if(ON){
-      print(msg+" ")
+      val out = new PrintWriter(new FileWriter(debugFileName, true))
+      out.println(msg)
+      out.flush
+      out.close
+      println(msg)
+      
     }
   }
   
@@ -58,4 +66,5 @@ object Debug{
   private def printDecl(decl:Declaration){
     println("Decl["+decl+"   "+decl.hashCode+"]")
   }
+
 }

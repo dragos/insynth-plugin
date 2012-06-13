@@ -26,10 +26,10 @@ object Simulation2 {
     builder.addDeclaration("m3", Method(null, List(List(CHAR)), STRING))
     builder.addDeclaration("m4", Method(null, Nil, CHAR))
 
-    val inSynth = new Engine(builder, transform(INT), new BFSScheduler(), TimeOut(timeSlot))
+    val inSynth = new Engine(builder, INT, new BFSScheduler(), TimeOut(timeSlot))
   
     val solution = inSynth.run()
-    if(solution != null) TreePrinter(solution)
+    if(solution != null) TreePrinter(solution, Nil)
     else println("No solution found!")
   }
 }

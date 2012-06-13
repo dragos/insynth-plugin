@@ -22,10 +22,10 @@ object Simulation5 {
     builder.addDeclaration("m10", Method(INT, Nil, INT))
     builder.addDeclaration("m11", Method(null, Nil, INT))
 
-    val inSynth = new Engine(builder, transform(INT), new BFSScheduler(), TimeOut(timeSlot))
+    val inSynth = new Engine(builder, INT, new BFSScheduler(), TimeOut(timeSlot))
   
     val solution = inSynth.run()
-    if(solution != null) TreePrinter(solution)
+    if(solution != null) TreePrinter(solution, Nil)
     else println("No solution found!")
   }
 }

@@ -27,11 +27,11 @@ object Simulation6 {
     
     val builder = new InitialEnvironmentBuilder()
     
-    val inSynth = new Engine(builder, transform(KComb), new BFSScheduler(), TimeOut(timeSlot))
+    val inSynth = new Engine(builder, KComb, new BFSScheduler(), TimeOut(timeSlot))
   
     //Maybe every TA should have a list of found solutions
     val solution = inSynth.run()
-    if(solution != null) TreePrinter(solution)
+    if(solution != null) TreePrinter(solution, Nil)
     else println("No solution found!")
   }
 }
