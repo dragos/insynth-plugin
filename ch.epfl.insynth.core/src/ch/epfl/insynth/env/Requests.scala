@@ -67,7 +67,7 @@ class Request(env:Environment) {
   
   def addAnswer(answer:SimpleNode) {
     if (answers == null){
-      answers = ContainerNode(Set.empty)
+      answers = new ContainerNode(scala.collection.mutable.Set.empty)
       answers.addNode(answer)
       //Update senders
       updateSenders()
@@ -133,7 +133,7 @@ class RequestContainer(request:Request, decls:List[Declaration], paramTypes:List
   //The reason is that Container is notified at most n times, where n is paramTypes.lenght
   private var answerPropagated:Boolean = false
   
-  private var answers = Map.empty[Type, ContainerNode]
+  private var answers = scala.collection.mutable.Map.empty[Type, ContainerNode]
   
   tryToPropagateAnswer()
   
@@ -149,7 +149,7 @@ class RequestContainer(request:Request, decls:List[Declaration], paramTypes:List
     if(!answerPropagated && fullyAnswerd){
       //Debug("In RequestContainer.tryToPropagateAnswer: ", decls(0))
       
-      request.addAnswer(SimpleNode(decls, answers))
+      request.addAnswer(new SimpleNode(decls, answers))
       answerPropagated = true
     }
   }

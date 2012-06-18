@@ -5,7 +5,7 @@ import java.io.PrintWriter
 import java.io.FileWriter
 
 object Debug{
-  final val ON = true
+  final val ON = false
 
   final val debugFileName = "C:\\Users\\gvero\\insynthDebug.txt"
   

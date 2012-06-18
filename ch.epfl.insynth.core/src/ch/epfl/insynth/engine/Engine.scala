@@ -32,16 +32,19 @@ class Engine(builder:InitialEnvironmentBuilder, queryType:ScalaType, scheduler:S
     //Initiate first request, that will find query decl and put it into Scheduler
     requests.addSender(query.getReturnType, builder.produceEnvirionment, query.getSender)
     
+    var steps = 0
+    
     timeout.start()
     while(!timeout.hasExpired() && !scheduler.hasFinished()){
       var ta = scheduler.next()
-      
-      Debug("In 'Engine.run': "+ta.getDeclarations(0))
+      steps+=1
+      //Debug("In 'Engine.run': "+ta.getDeclarations(0))
       
       //println("In 'Engine.run': ")
       
       ta.processRequests(requests)
     }
+    Debug("Number of steps: "+steps)
     
     query.getSolution
   }

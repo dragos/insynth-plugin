@@ -89,22 +89,6 @@ trait TLoader extends TCollector with TExtractor with TDeclarationFactory {
     }
     
     private def loadDecls(types:List[Symbol], builder:InitialEnvironmentBuilder){
-/*       for {
-         tpe <- types
-         decl <- tpe.tpe.decls
-         if(!decl.nameString.contains("$") && 
-	        decl.exists)
-       }{
-         val isPublic = decl.isPublic
-         val synthatic = decl.isSynthetic
-         val consInModule = (tpe.isModule && decl.isConstructor)
-	     val getter = decl.isGetter
-	     val setter = decl.isSetter
-	     val value = decl.isValue 
-	     val rUnit = TData.returnsUnit(decl)
-	     val decl1 = decl
-       }      
-*/      
        for {
          tpe <- types
          decl <- tpe.tpe.decls

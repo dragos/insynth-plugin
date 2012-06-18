@@ -17,7 +17,7 @@ trait Typable {
  * abstract tree node
  * is capable of returning its type and to format itself
  */
-abstract class Node extends Typable with FormatableIntermediate
+abstract class Node extends Typable// with FormatableIntermediate
 
 /**
  * a leaf node, descent down the tree finishes at a subclass of this node 
@@ -39,6 +39,12 @@ case class Variable(tpe: Type, name: String) extends Leaf(tpe)
 case class Identifier(tpe: Type, decl: Declaration) extends Leaf(tpe)
 
 /**
+ * identifier in scope
+ * @param decl declaration with more information about the identifier 
+ */
+case object NullLeaf extends Leaf(null)
+
+/**
  * application term
  * first element in params is an expression (subtree) to which other parameters are
  * applied
@@ -55,36 +61,36 @@ case class Abstraction(tpe: Type, vars: List[Variable], subTrees: Set[Node]) ext
   def getType = tpe
 }
 
-/**
- * trait that defines how are intermediate nodes formated into pretty print documents
- */
-trait FormatableIntermediate extends Formatable {
-  def toDocument: Document = {
-    import FormatHelpers._
-
-    this match {
-      case Variable(tpe, name) => paren(name :: ": " :: tpe.toString) 
-      case Identifier(tpe, dec) => dec.getSimpleName
-      case Application(tpe, params) => {
-        val headDoc:Document = params.head.head match {
-          case Variable(_, name) => name
-          case n => n.toDocument
-        } 
-        headDoc :/:
-        paren(seqToDoc(params.tail, ",", 
-		  {s: Set[Node] => 
-          	s.toList match {
-          	  case List(el) => (el.toDocument)
-          	  case s:List[Node] => nestedBrackets(seqToDoc(s, "|", { f:Formatable => nestedParen(f.toDocument) }))
-          	}
-		  }
-        ))
-      }
-      case Abstraction(tpe, vars, subtrees) =>
-        paren(
-          paren(seqToDoc(vars, ",", {d: Formatable => d.toDocument})) :/: "=>" :/:
-    	  nestedBrackets(subtrees.head.toDocument)
-		)
-    }
-  }
-}
+///**
+// * trait that defines how are intermediate nodes formated into pretty print documents
+// */
+//trait FormatableIntermediate extends Formatable {
+//  def toDocument: Document = {
+//    import FormatHelpers._
+//
+//    this match {
+//      case Variable(tpe, name) => paren(name :: ": " :: tpe.toString) 
+//      case Identifier(tpe, dec) => dec.getSimpleName
+//      case Application(tpe, params) => {
+//        val headDoc:Document = params.head.head match {
+//          case Variable(_, name) => name
+//          case n => n.toDocument
+//        } 
+//        headDoc :/:
+//        paren(seqToDoc(params.tail, ",", 
+//		  {s: Set[Node] => 
+//          	s.toList match {
+//          	  case List(el) => (el.toDocument)
+//          	  case s:List[Node] => nestedBrackets(seqToDoc(s, "|", { f:Formatable => nestedParen(f.toDocument) }))
+//          	}
+//		  }
+//        ))
+//      }
+//      case Abstraction(tpe, vars, subtrees) =>
+//        paren(
+//          paren(seqToDoc(vars, ",", {d: Formatable => d.toDocument})) :/: "=>" :/:
+//    	  nestedBrackets(subtrees.head.toDocument)
+//		)
+//    }
+//  }
+//}

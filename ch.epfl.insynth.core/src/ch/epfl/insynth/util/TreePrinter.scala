@@ -6,6 +6,14 @@ import java.io.FileWriter
 
 object TreePrinter {
  
+  def apply(fileName:String, msg:String){
+    val out = new PrintWriter(new FileWriter(fileName))
+    out.println
+    out.println(msg)
+    out.flush
+    out.close
+  }
+  
   def apply(fileName:String, msg:String, decls:List[Declaration]){
     val out = new PrintWriter(new FileWriter(fileName))
     
@@ -33,6 +41,22 @@ object TreePrinter {
     out.flush
     out.close
   }
+  
+  def apply(fileName:String, msg:String, answer:ContainerNode, decls:List[Declaration]){
+    val out = new PrintWriter(new FileWriter(fileName))
+    
+    out.println("Initial decls: ")
+    decls.foreach{
+      decl => out.println(decl)
+    }
+    
+    out.println
+    out.println(msg)
+    out.println    
+    printAnswer(out, answer)
+    out.flush
+    out.close
+  }  
   
   def apply(answer:ContainerNode, decls:List[Declaration]){
     val out = new PrintWriter(System.out)

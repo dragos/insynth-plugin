@@ -2,6 +2,7 @@ package ch.epfl.insynth.loader
 
 import scala.tools.nsc.interactive.Global
 import ch.epfl.insynth.InSynth
+import ch.epfl.insynth.debug.Debug
 
 trait TData {
   self:InSynth =>
@@ -331,12 +332,12 @@ class RawData {
       var types = List[Symbol]()
       if (rdata.hasImports) {
         val imports = rdata.getImports
-        
         for {
           imp <- imports
 	      tpe <- imp.expr.tpe.decls
 	      if (!tpe.nameString.contains("$")
 	          && tpe.exists
+	          && selected(tpe, imp.selectors)
 	          && !loadedTypes.exists(tpe.fullName.equals)
 	          && (tpe.isClass || tpe.isModule || tpe.isAbstractClass || tpe.isTrait)
 	          && !tpe.isSynthetic
@@ -345,7 +346,11 @@ class RawData {
         } types = tpe :: types
       }
       types      
-    }    
+    }
+    
+    private def selected(tpe:Symbol, selectors:List[ImportSelector]):Boolean = {
+      selectors.exists(x => x.name.toString.equals("_") || x.name.toString.equals(tpe.simpleName.toString))
+    }
     
     //TODO: Check if we load all classes 
     private def superTypes(loadedTypes:Set[Symbol]):List[Symbol] = {

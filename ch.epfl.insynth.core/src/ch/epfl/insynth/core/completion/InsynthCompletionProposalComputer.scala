@@ -61,13 +61,7 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
             	  }
               }
               
-              
               compiler.askReload(scu, getNewContent(position, oldContent))
-              //compiler.askToDoFirst(scu)
-          //}()
-          
-          //val list = scu.withSourceFile {
-            ///(sourceFile, compiler) =>
 
 
               val results = InSynthWrapper.insynth.getSnippets(sourceFile.position(position))
@@ -76,25 +70,9 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
               
               results.foreach(x => list1.add(new InSynthCompletitionProposal(x)))
               
-              
-              //compiler.askReload(scu, oldContent)
-              //compiler.askToDoFirst(scu)
-              
               list1
              }(javaEmptyList())
              
-            /*scu.withSourceFile {
-            (_, compiler) =>
-              compiler.askReload(scu, oldContent)
-              //compiler.askToDoFirst(scu)
-             }()
-             */
-             /*println("Solutions:")
-             for (i <- 0 until list.size){
-               println(list.get(i).getDisplayString)
-             }*/
-             
-             //list
         case _ => javaEmptyList()
       }
       case _ => javaEmptyList()
@@ -114,7 +92,7 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
     
     println("New content:")
     newContent.foreach{print}
-    println()
+    //println()
     newContent
   }
 }

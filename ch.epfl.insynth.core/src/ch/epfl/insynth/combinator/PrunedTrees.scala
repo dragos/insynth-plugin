@@ -12,7 +12,7 @@ trait Typable {
 /**
  * abstract tree node
  */
-abstract class Node(tpe: Type) extends Typable with FormatableIntermediate {
+abstract class Node(tpe: Type) extends Typable/* with FormatableIntermediate */{
   def getType: Type = tpe  
 }
 
@@ -27,33 +27,33 @@ extends Node(tpe) {
 /**
  * container for tree nodes
  */
-case class ContainerNode(var nodes:Set[Node]) extends FormatableIntermediate {
+case class ContainerNode(var nodes:Set[Node])/* extends FormatableIntermediate */{
   def addNode(node:Node) {
     nodes += node
   }  
   def getNodes = nodes
 }
 
-trait FormatableIntermediate extends ch.epfl.insynth.print.Formatable {
-  def toDocument = {
-    import ch.epfl.insynth.print.FormatHelpers._
-
-    this match {
-      case AbsNode(tpe) => "Leaf" :: paren(tpe.toDocument)
-      case SimpleNode(decls, tpe, map) =>
-        "SimpleNode" :: paren(tpe.toDocument) :: nestedBrackets(
-            seqToDoc(decls, ",", { d:Declaration => strToDoc(d.getSimpleName) })
-            :/:
-            seqToDoc(map.toList, ",", 
-              { 
-            	p:(Type, ContainerNode) => paren(p._1.toDocument) :: "->" ::
-            	nestedBrackets(p._2.toDocument)
-              }
-            )
-        )
-      case ContainerNode(nodes) =>
-        nestedBrackets(seqToDoc(nodes.toList, ",", (_:Node).toDocument))
-        //"Container"
-    }
-  }
-}
+//trait FormatableIntermediate extends ch.epfl.insynth.print.Formatable {
+//  def toDocument = {
+//    import ch.epfl.insynth.print.FormatHelpers._
+//
+//    this match {
+//      case AbsNode(tpe) => "Leaf" :: paren(tpe.toDocument)
+//      case SimpleNode(decls, tpe, map) =>
+//        "SimpleNode" :: paren(tpe.toDocument) :: nestedBrackets(
+//            seqToDoc(decls, ",", { d:Declaration => strToDoc(d.getSimpleName) })
+//            :/:
+//            seqToDoc(map.toList, ",", 
+//              { 
+//            	p:(Type, ContainerNode) => paren(p._1.toDocument) :: "->" ::
+//            	nestedBrackets(p._2.toDocument)
+//              }
+//            )
+//        )
+//      case ContainerNode(nodes) =>
+//        nestedBrackets(seqToDoc(nodes.toList, ",", (_:Node).toDocument))
+//        //"Container"
+//    }
+//  }
+//}

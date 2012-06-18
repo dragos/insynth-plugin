@@ -24,15 +24,21 @@ trait Formatable {
 }
 
 object FormatHelpers {	
+  
+  def paren(d: Document): Document =
+    group("(" :: d :: ")")
 	
   def nestedParen(d: Document): Document =
     group("(" :: nest(1, break :: d) :/: ")")
 	
   def nestedBrackets(d: Document): Document =
-    group(/*"{" :: */nest(1, break :: d) /*:/: "}"*/)
+    group("{" :: nest(1, break :: d) :/: "}")
 
-  def paren(d: Document): Document =
-    group("(" :: d :: ")")
+  def sqBrackets(d: Document) =
+    group("[" :: d :: "]")
+    
+  def nestedSqBrackets(d: Document) =
+    group("[" :: nest(1, break :: d) :: "]")    
     
   def addOrEmpty(d1: Document, d2: Document): Document =
     d1 match {

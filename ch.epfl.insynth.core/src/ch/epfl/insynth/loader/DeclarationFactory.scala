@@ -3,6 +3,7 @@ package ch.epfl.insynth.loader
 import ch.epfl.insynth.InSynth
 import ch.epfl.insynth.trees.TypeTransformer
 import ch.epfl.insynth.env.Declaration
+import ch.epfl.insynth.debug.Debug
 
 trait TDeclarationFactory extends TData {
   self:InSynth =>
@@ -10,29 +11,6 @@ trait TDeclarationFactory extends TData {
   import compiler._  
   
   object DeclarationFactory {
-
-    /*
-    def getOwnerClassDecl(sdecl:SimpleDecl):Option[Declaration] = {
-      val declOption = if (sdecl.needReceiver) makeDecl(sdecl.getSymbol.fullName, sdecl.getReceiver.tpe, sdecl.getSymbol.tpe)
-                 else makeDecl(sdecl.getSymbol.fullName, sdecl.getSymbol.tpe)
-      
-      declOption match {
-        case Some(decl) =>
-          decl.setIsConstructor(sdecl.isConstructor)
-          decl.setHasParentheses(sdecl.needParentheses)
-          decl.setHasThis(sdecl.needThis)
-          decl.setIsApply(sdecl.isApply)
-          decl.setBelongsToObject(sdecl.isInObject)
-          
-          decl.setIsMethod(sdecl.isMethod)
-          decl.setIsField(!sdecl.isMethod)
-                    
-          Some(decl)
-        case None => None
-      }
-    }
-    */
-    
     def getDecl(sdecl:SimpleDecl):Option[Declaration] = {
       val declOption = if (sdecl.needReceiver) makeDecl(sdecl.getSymbol.fullName, sdecl.getReceiver.tpe, sdecl.getSymbol.tpe)
                  else makeDecl(sdecl.getSymbol.fullName, sdecl.getSymbol.tpe)
@@ -43,7 +21,14 @@ trait TDeclarationFactory extends TData {
           decl.setHasParentheses(sdecl.needParentheses)
           decl.setHasThis(sdecl.needThis)
           decl.setIsApply(sdecl.isApply)
-          decl.setBelongsToObject(sdecl.isInObject)
+          val inObject = sdecl.isInObject
+          if (inObject){
+            
+            decl.setObjectName(sdecl.getReceiver.simpleName.toString)
+            decl.setBelongsToObject(inObject)
+            
+            Debug("InObject: **"+sdecl.getReceiver.simpleName.toString+"**")
+          }
           
           decl.setIsMethod(sdecl.isMethod)
           decl.setIsField(!sdecl.isMethod)
