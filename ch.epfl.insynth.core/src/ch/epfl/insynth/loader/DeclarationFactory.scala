@@ -63,8 +63,13 @@ trait TDeclarationFactory extends TData {
       val scalaTypeOption = ScalaTypeExtractor.getType(receiverType, tpe)
       scalaTypeOption match {
         case Some(scalaType) =>
-          val inSynthType = TypeTransformer.transform(scalaType)
-          Some(Declaration(name, inSynthType, scalaType))
+          //TODO:Remove this "try" once we find the bug in TypeTransformer
+          try{
+            val inSynthType = TypeTransformer.transform(scalaType)
+            Some(Declaration(name, inSynthType, scalaType))
+          } catch {
+            case _ => None
+          }
         case None => None //throw new Exception("No type found for decl in: "+ this.getClass.getName)
       }     
     }
@@ -73,8 +78,13 @@ trait TDeclarationFactory extends TData {
       val scalaTypeOption = ScalaTypeExtractor.getLocalType(tpe)
       scalaTypeOption match {
         case Some(scalaType) =>
-          val inSynthType = TypeTransformer.transform(scalaType)
-          Some(Declaration(name, inSynthType, scalaType))
+          //TODO:Remove this "try" once we find the bug in TypeTransformer
+          try{          
+            val inSynthType = TypeTransformer.transform(scalaType)
+            Some(Declaration(name, inSynthType, scalaType))
+          } catch {
+            case _ => None
+          }            
         case None => None //throw new Exception("No type found for decl in: "+ this.getClass.getName)
       }     
     }    
@@ -87,11 +97,15 @@ trait TDeclarationFactory extends TData {
           val subTypeOption = ScalaTypeExtractor.getLocalType(coerction.getSubtype)          
           subTypeOption match {
             case Some(subType) =>
-              val scalaType = ScalaTypeExtractor.getCoerctionType(subType, superType)
-              val inSynthType = TypeTransformer.transform(scalaType)
-              val decl = Declaration("#Coerction#", inSynthType, scalaType)
-              decl.setInheritanceFun(true)
-              Some(decl)
+              try{
+                val scalaType = ScalaTypeExtractor.getCoerctionType(subType, superType)
+                val inSynthType = TypeTransformer.transform(scalaType)
+                val decl = Declaration("#Coerction#", inSynthType, scalaType)
+                decl.setInheritanceFun(true)
+                Some(decl)
+              } catch {
+                case _ => None
+              }              
             case None => None
           }
         case None => None
