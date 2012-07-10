@@ -8,55 +8,46 @@ import ch.epfl.insynth.util.TimeOut
 import ch.epfl.insynth.scheduler.BFSScheduler
 import ch.epfl.insynth.util.TreePrinter
 import ch.epfl.insynth.reconstruction.Reconstructor
-import ch.epfl.insynth.debug.Debug
+import ch.epfl.insynth.env.InitialEnvironmentBuilder
+import ch.epfl.insynth.loader.TPreLoder
+import ch.epfl.insynth.reconstruction.Output
+import ch.epfl.insynth.scheduler.WeightScheduler
 
-class InSynth(val compiler: Global) extends TLoader {
+class InSynth(val compiler: Global) extends TLoader with TPreLoder {
   
   import compiler._
   
-  private val config = new Config()
-  
   private val loader = new Loader()
   
-  def getSnippets(pos:Position):List[String] = {
-    //TreePrinter(config.errorFileName, "")    
+  def getPredefDecls() = {
+    val preloader = new PreLoader()
+    preloader.load()
+  }
+  
+  def getSnippets(pos:Position, builder:InitialEnvironmentBuilder):List[Output] = {   
     
     try {
+      
+      ScalaTypeExtractor.clear()
       var tree = wrapTypedTree(pos.source, false)
-      val (desiredType, builder) = loader.load(pos, tree)
-      
-      val engine = new Engine(builder, desiredType, new BFSScheduler(), TimeOut(config.getTimeOutSlot))
-  
-      val initialDecls = builder.getAllDeclarations
-      
-      val time = System.currentTimeMillis
+      val desiredType = loader.load(pos, tree, builder)
+
+      val engine = new Engine(builder, desiredType, new WeightScheduler(), TimeOut(Config.getTimeOutSlot))
       
       val solution = engine.run()
-/*      
-      if(solution != null){
-        TreePrinter(config.outputFileName, "Solution found in: "+ (System.currentTimeMillis - time)+" ms", solution, initialDecls)
-        //TreePrinter(config.outputFileName, "Solution found in: "+ (System.currentTimeMillis - time)+" ms", initialDecls)
-      }
-      else TreePrinter(config.outputFileName, "No solution found in: "+ (System.currentTimeMillis - time)+" ms", initialDecls)
-*/
-      if (solution != null){
-        Reconstructor(solution.getNodes.head).map(_.getSnippet)
-        //List("Found!")
-      } else Nil
       
+      if (solution != null) Reconstructor(solution.getNodes.head) else Nil
     } catch {
       case ex =>
-//        TreePrinter(config.errorFileName, ex.getMessage +"\n"+ ex.getStackTraceString)
       Nil
     }
   }
 
   private def wrapTypedTree(source: SourceFile, forceReload: Boolean): Tree =
-    wrap[Tree](r => new AskTypeItem(source, forceReload, r).apply(), t => throw t)
-
-  private def wrap[A](compute: Response[A] => Unit, handle: Throwable => A): A = {
-    val result = new Response[A]
-    compute(result)
-    result.get.fold(o => o, handle)
+  {
+    val response = new Response[Tree]
+    askType(source, forceReload, response)
+    val typed = response.get
+    typed.fold(identity, throw _)
   }  
 }

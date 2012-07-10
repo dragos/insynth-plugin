@@ -11,16 +11,18 @@ import scala.tools.eclipse.javaelements.ScalaCompilationUnit
 import org.eclipse.jface.text.contentassist.CompletionProposal
 import java.io.FileWriter
 import java.io.BufferedWriter
-
 import scala.tools.nsc.interactive.Global
 import scala.tools.nsc.util.SourceFile
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import scala.tools.nsc.util.Position
 import java.io.OutputStreamWriter
-
-//import ch.epfl.insynth.library.ISynth
 import ch.epfl.insynth.InSynth
+import ch.epfl.insynth.util.TreePrinter
+import ch.epfl.insynth.Config
+import ch.epfl.insynth.env.InitialEnvironmentBuilder
+import ch.epfl.insynth.env.Declaration
+import ch.epfl.insynth.reconstruction.Output
 
 /* 
 TODO:
@@ -43,7 +45,7 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
     import java.util.Collections.{ emptyList => javaEmptyList }
 
     val position = context.getInvocationOffset()
-    
+
     context match {
       case jc: JavaContentAssistInvocationContext => jc.getCompilationUnit match {
         case scu: ScalaCompilationUnit =>
@@ -52,6 +54,7 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
           
           scu.withSourceFile {
             (sourceFile, compiler) =>
+              
               if(compiler != InSynthWrapper.compiler){
             	  InSynthWrapper.compiler = compiler
                   InSynthWrapper.insynth = new InSynth(compiler)
@@ -61,14 +64,36 @@ class InsynthCompletionProposalComputer extends IJavaCompletionProposalComputer 
             	  }
               }
               
+              //Getting builder for the first time
+              if (InSynthWrapper.builder == null){
+                InSynthWrapper.builder = new InitialEnvironmentBuilder()
+                if (Config.loadPredefs){
+                  InSynthWrapper.predefDecls = InSynthWrapper.insynth.getPredefDecls()
+                  InSynthWrapper.builder.addDeclarations(InSynthWrapper.predefDecls)
+                }
+              } // else builder is already prepared
+              
               compiler.askReload(scu, getNewContent(position, oldContent))
 
-
-              val results = InSynthWrapper.insynth.getSnippets(sourceFile.position(position))
+              var results = List.empty[Output]
+              InSynthWrapper.builder.synchronized{
+                results = InSynthWrapper.insynth.getSnippets(sourceFile.position(position), InSynthWrapper.builder)
+              }
               
+              val sortedResults = results.sortWith((x,y) => x.getWieght.getValue < y.getWieght.getValue).map(x => x.getSnippet)// + "   w = "+x.getWieght.getValue)
+                           
               val list1:java.util.List[ICompletionProposal] = new java.util.LinkedList[ICompletionProposal]()
               
-              results.foreach(x => list1.add(new InSynthCompletitionProposal(x)))
+              var i = sortedResults.length
+              sortedResults.foreach(x =>{  
+                  list1.add(new InSynthCompletitionProposal(x, i))
+                  i -=1
+                }
+              )
+              
+              //Make a new builder
+              val pl = new PredefBuilderLoader()
+              pl.start()
               
               list1
              }(javaEmptyList())
@@ -103,4 +128,17 @@ object InSynthWrapper{
   var insynth:InSynth = null;
   var compiler:Global = null;
   
+  var builder:InitialEnvironmentBuilder = null;
+  var predefDecls:List[Declaration] = null;
+  
+}
+
+class PredefBuilderLoader extends Thread {
+  
+  override def run(){
+    InSynthWrapper.builder.synchronized{
+      InSynthWrapper.builder = new InitialEnvironmentBuilder()
+      if (Config.loadPredefs) InSynthWrapper.builder.addDeclarations(InSynthWrapper.predefDecls)
+    }
+  }
 }

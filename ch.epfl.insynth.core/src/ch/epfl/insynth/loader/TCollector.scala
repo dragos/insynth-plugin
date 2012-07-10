@@ -59,15 +59,21 @@ class Collector {
     } else {
       if(this.isCompletition(tree))
 	    lastVisitedTree match {
-	    case ValDef(mods, name, tpt:TypeTree, rhs) =>  
+	    case ValDef(mods, name, tpt:TypeTree, rhs) if(rhs.tpe.typeSymbol.tpe.equals(definitions.NullClass.tpe) 
+		                                              || rhs.tpe.typeSymbol.tpe.equals(NoType))=>  
 	      this.info.setFieldToComplete(lastVisitedTree.symbol)
 		  this.info.setDesiredType(tpt.tpe)
 		
-	    case DefDef(mods, name, tparams, vparamss, tpt:TypeTree, rhs) => 
+	    case DefDef(mods, name, tparams, vparamss, tpt:TypeTree, rhs) if(rhs.tpe.typeSymbol.tpe.equals(definitions.NullClass.tpe) 
+		                                                                 || rhs.tpe.typeSymbol.tpe.equals(NoType))=>  
 	      this.info.setMethodToComplete(lastVisitedTree.symbol)
 		  this.info.setDesiredType(tpt.tpe)
 		  
-	    case t => throw new Exception("Case not covered in Collector.traverse: "+t.getClass.getName) 
+	    case _ => 
+	      this.info.setLocalToComplete(definitions.UnitClass)
+	      this.info.setDesiredType(definitions.UnitClass.tpe)
+	      
+	      //throw new Exception("Case not covered in Collector.traverse: "+t.getClass.getName) 
 	  }
 	else
 	  lastVisitedTree = tree
@@ -103,7 +109,8 @@ class Collector {
 	          } else {
 	            if (i+1 < length && this.isCompletition(list(i+1))) {
 		          statement match {
-		            case ValDef(_,_,tpt:TypeTree,_) =>
+		            case ValDef(_,_,tpt:TypeTree,rhds) if(rhds.tpe.typeSymbol.tpe.equals(definitions.NullClass.tpe) 
+		                                                  || rhds.tpe.typeSymbol.tpe.equals(NoType)) =>
 		                 this.info.setLocalToComplete(statement.symbol)		              
 		                 this.info.setDesiredType(tpt.tpe)
 		                 
@@ -112,14 +119,46 @@ class Collector {
 		                 this.info.setDesiredType(definitions.BooleanClass.tpe)
 		              
 		            case Apply(fun, args) =>
-		               args.foreach{x => x match {
+		               
+		               val length = args.length
+		               var i = 0
+		               var cond = true
+		               while(i < length && cond){
+		                 val x = args(i)
+		                 try{
+		                   if (x.tpe.typeSymbol.tpe.equals(definitions.NullClass.tpe)){
+		                     val param = fun.symbol.tpe.params(i)
+		                     this.info.setLocalToComplete(definitions.NullClass)		                  
+		                     this.info.setDesiredType(param.tpe)
+		                     cond = false
+		                   } else {
+		                     x match {
+			                   case If(cond1, thenp, elsep) if(cond1.symbol == null) =>
+			                     this.info.setLocalToComplete(definitions.BooleanClass)
+			                     this.info.setDesiredType(definitions.BooleanClass.tpe)
+			                     cond = false
+			                   case _ => 
+			                 }
+		                   }
+		                 } catch{
+		                   case _ =>
+		                 }
+		                 i+=1
+		               }
+		              
+		               /*
+		               args.foreach{x => 
+		                 
+		                 x match {
 			             case If(cond, thenp, elsep) if(cond.symbol == null) =>
 			               this.info.setLocalToComplete(definitions.BooleanClass)
 			               this.info.setDesiredType(definitions.BooleanClass.tpe)
 			             }
 		               }
-			            
-			        case _ => 
+			           */
+			        case _ =>
+			          this.info.setLocalToComplete(definitions.UnitClass)
+			          this.info.setDesiredType(definitions.UnitClass.tpe)
 		          }
 	            } else {
 	              if (isValDef(statement)){
@@ -143,7 +182,6 @@ class Collector {
 	            case _ =>
 	          }
 	        }
-
 	        this.traverseBlock(pos, body)
 	      case Alternative(trees) =>
             this.traverseBlockTrees(pos, trees)

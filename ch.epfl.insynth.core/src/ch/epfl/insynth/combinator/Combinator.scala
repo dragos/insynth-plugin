@@ -1,9 +1,13 @@
 package ch.epfl.insynth.combinator
 
 import scala.collection.mutable.PriorityQueue
-
 import ch.epfl.insynth.{ env => InSynth }
 import ch.epfl.insynth.trees._
+import java.util.logging.Logger
+import java.util.logging.ConsoleHandler
+import ch.epfl.insynth.env.FormatNode
+import java.util.logging.Level
+import ch.epfl.insynth.Config
 
 /**
  * object which application transforms an InSynth representation input
@@ -11,30 +15,40 @@ import ch.epfl.insynth.trees._
  */
 object Combinator extends ((InSynth.SimpleNode, Int) => Node) {
   
-  // predefined default number of combinations
-  val predefinedNeededCombinations = 5
+  val logger = Rules.logger
+  val logApply = Rules.logApply//(logger.getName + ".apply")
+  val logPQAdding = Config.logPQAdding
   
-  // apply without specifying the number of combinations
-  def apply(root: InSynth.SimpleNode):SimpleNode = {
-    apply(root, predefinedNeededCombinations)
-  }
+//  // predefined default number of combinations
+//  val predefinedNeededCombinations = 15
+//  
+//  // apply without specifying the number of combinations
+//  def apply(root: InSynth.SimpleNode):SimpleNode = {
+//    apply(root, predefinedNeededCombinations)
+//  }
   
   // apply with number of combinatinos needed
-  def apply(root: InSynth.SimpleNode, neededCombinations: Int) = {
+  def apply(root: InSynth.SimpleNode, neededCombinations: Int):SimpleNode = {
+    // logging
+    if (Rules.isLogging) {
+    logApply.entering(getClass.getName, "apply")
+    logApply.finest("Entering combinator step (root: "+ FormatNode(root, Config.logCombinatorInputProofTreeLevel) + ", combinations: " + neededCombinations)
+    }
+        
     // import transformer from InSynth to intermediate declaration
     import DeclarationTransformer.fromInSynthDeclaration
     
-    // TODO change this temporary weight for leaves
-    val WeightForLeafs = 0.5d
+    // reset so that pruning is not done
+    Rules.doPruning = false
       
     // pair type that will be put in the priority queue
     // ( expression to be explored, a set of expressions visited on the path )
-    type ExpressionPair = (Expression, Set[Expression])
+    type ExpressionPair = (Expression, Set[InSynth.Node])
     // priority queue
     var pq = new PriorityQueue[ExpressionPair]() (
       // ordering defined on the expressions  
       new Ordering[ExpressionPair] {                                                                    
-	    def compare(a : ExpressionPair, b : ExpressionPair) = a._1.compare(b._1)                                           
+	    def compare(a : ExpressionPair, b : ExpressionPair) = b._1.compare(a._1)                                           
       } 
     )    
     // declare root Tree which starts the hierarchy 
@@ -45,25 +59,61 @@ object Combinator extends ((InSynth.SimpleNode, Int) => Node) {
     /* start the traversal */
     
     // add the root declaration and an empty set
-    val startTuple = (rootDeclaration, Set[Expression]())
+    val startTuple = (rootDeclaration, Set[InSynth.Node]())
     pq += startTuple
     
+    // DEBUG
+    //var steps = 0
+    
     // while there is something in the queue
-    while (! pq.isEmpty) {
+    while (! pq.isEmpty/* && steps<100*/) {
+      
+//      if (steps >= 99) {
+//        logApply.warning("steps 100 hit")
+//      }
+//      steps += 1
+      
       // dequeue a pair
       val (currentDeclaration, visited) = pq.dequeue
-      
-      // if current declaration is pruned or already visited on this path, log
-      if (currentDeclaration.isPruned)
-        Rules.logger.fine("Declaration with " + currentDeclaration.getAssociatedNode + " pruned")
-      if (visited.contains(currentDeclaration))
-        Rules.logger.info("Stumbled upon a cycle: discarding the node.")
+              
+      // logging
+      if (Rules.isLogging) {
+	      logApply.finer("Current declaration processed " + currentDeclaration)
+	            
+	      // if current declaration is pruned or already visited on this path, log
+	      if (currentDeclaration.isPruned) {
+	        logApply.fine("Declaration with " + FormatNode(currentDeclaration.getAssociatedNode, 0) + " pruned")
+	      }
+	      if (visited.contains(currentDeclaration.getAssociatedNode)) {
+	        logApply.fine("Stumbled upon a cycle (discarding the node: " + FormatNode(currentDeclaration.getAssociatedNode, 0) + ")")
+	      }
+	      
+	      // additional pruning conditions
+	      if (currentDeclaration.getAssociatedTree.isPruned) {
+	        logApply.fine("!Declaration " + currentDeclaration + " pruned")
+	      }
+	      if (Rules.doPruning && currentDeclaration.getAssociatedTree.checkIfPruned(currentDeclaration.getTraversalWeight)) {
+	        logApply.fine("!!Declaration " + currentDeclaration + " pruned")
+	      }
+	      
+	      if (Rules.doPruning)
+	        logApply.fine("Pruning is on, pq.size=" + pq.size)
+      }
         
       // if current declaration is pruned or already visited on this path, ignore it
-      if (!visited.contains(currentDeclaration) && !currentDeclaration.isPruned) {
+      if (
+          !visited.contains(currentDeclaration.getAssociatedNode) && !currentDeclaration.isPruned &&
+          !currentDeclaration.getAssociatedTree.isPruned &&
+          !(Rules.doPruning && currentDeclaration.getAssociatedTree.checkIfPruned(currentDeclaration.getTraversalWeight))
+          ) {
       
     	  // add explored declaration to its associated tree as explored
 	      currentDeclaration.getAssociatedTree addDeclaration(currentDeclaration)
+	      
+          // logging
+	      if (Rules.isLogging)
+          logApply.finer("Adding expression " + currentDeclaration.toString + " to its tree")
+	      
 	      // check the type of the current declaration
 	      currentDeclaration match {
 	        // Composite represents a declaration with children 
@@ -83,67 +133,69 @@ object Combinator extends ((InSynth.SimpleNode, Int) => Node) {
 	            for(node <- c.associatedNode.getParams(parameter).nodes) {
 	              // according to the type of node
 	              // create a declaration and insert the pair into the queue
+	              
+	              // if there are no parameters insert simple nodes
 	              if (node.getParams.isEmpty){
 	                  // for each of its declarations
-	                  val decls = node.getDecls
-	                  for (dec <- decls) {
-	                    
-	                    // NOTE we are not dealing with "Leaf expressions" anymore
-//	                    if (dec.isAbstract)
-//	                      pq += LeafExpression(paramTree, WeightForLeafs, sn)
-//	                    else
-	                    
+	                  for (dec <- node.getDecls;
+	                  // optimization - only consider those nodes that have less weight than
+	                  // all trees up to the tree
+	                  val notConsider = Rules.doPruning && paramTree.checkIfPruned(dec.getWeight.getValue
+                		  + paramTree.getTraversalWeight);
+            		  // logging
+            		  val dummy =
+            		    if (Config.isLogging && notConsider) {
+            		      logPQAdding.info("Decl " + dec.getSimpleName + " is not considered")
+            		    }
+	                  if !notConsider
+            		  ) // for
+	                  {
+	                    	                    
 	                    // new pair of simple expression and extended path
 	                    val newPair = 
-	                      (Simple(paramTree, fromInSynthDeclaration(dec), node), visited + c)
+	                      (
+                            Simple(paramTree, fromInSynthDeclaration(dec), node),
+                            visited + c.getAssociatedNode
+                		  )
+	                      
+                        // logging
+                		if (Rules.isLogging)
+	                    logPQAdding.finer("Adding " + newPair._1 + " to the queue")
                         // add new pair to the queue 
+	                    
                     	pq += newPair
 	                  }	                
+                  // if there are parameters insert composite nodes
 	              } else {
-	                  val decls = node.getDecls
-	                  for (dec <- decls) {
+	                  // for each of its declarations
+	                  for (dec <- node.getDecls;
+	                  // optimization - only consider those nodes that have less weight than
+	                  // all trees up to the tree
+	                  val notConsider = Rules.doPruning && paramTree.checkIfPruned(dec.getWeight.getValue
+                		  + paramTree.getTraversalWeight);
+            		  // logging
+            		  val dummy =
+            		    if (Config.isLogging && notConsider) {
+            		      logPQAdding.info("Decl " + dec.getSimpleName + " is not considered")
+            		    }
+	                  if !(notConsider)
+            		  ) // for 
+	                  {
 	                    // new pair of simple expression and extended path
 	                    val newPair = 
-	                      (Composite(paramTree, fromInSynthDeclaration(dec), node), visited + c)
+	                      (
+                            Composite(paramTree, fromInSynthDeclaration(dec), node), 
+	                        visited + c.getAssociatedNode
+                		  )
+	                      	                      
+                        // logging
+                		if (Rules.isLogging)
+	                    logPQAdding.finer("Adding " + newPair._1 + " to the queue")
+	                    
                         // add new pair to the queue 
 	                    pq += newPair
 	                  }	                
 	              }
-	                
-	                
-	                
-/*	              
-	              node match {
-	                // for a simple node insert simple expressions 
-	                case sn@InSynth.SimpleNode(decls, params) if params.isEmpty =>
-	                  // for each of its declarations
-	                  for (dec <- decls) {
-	                    
-	                    // NOTE we are not dealing with "Leaf expressions" anymore
-//	                    if (dec.isAbstract)
-//	                      pq += LeafExpression(paramTree, WeightForLeafs, sn)
-//	                    else
-	                    
-	                    // new pair of simple expression and extended path
-	                    val newPair = 
-	                      (Simple(paramTree, fromInSynthDeclaration(dec), sn), visited + c)
-                        // add new pair to the queue 
-                    	pq += newPair
-	                  }
-	                // for a composite node insert composite expressions 
-	                case sn@InSynth.SimpleNode(decls, _) =>
-	                  for (dec <- decls) {
-	                    // new pair of simple expression and extended path
-	                    val newPair = 
-	                      (Composite(paramTree, fromInSynthDeclaration(dec), sn), visited + c)
-                        // add new pair to the queue 
-	                    pq += newPair
-	                  }
-	              }
-*/	              
-	              
-	              
-	              
 	            }
 	          }
 	        }
@@ -157,9 +209,38 @@ object Combinator extends ((InSynth.SimpleNode, Int) => Node) {
 	      }
       }
     }
+        
+    // logging
+    if (Rules.isLogging) {
+//      if (steps >0) {
+//        logger.severe("pq has items: " + pq.size)
+//        while(!pq.isEmpty) {
+//          val item = pq.dequeue
+//         logger.severe("pq leftover(weight " + item._1.getTraversalWeight + " ):" + FormatNode(item._1.getAssociatedNode, 0)) 
+//        }
+//      }
       
+    if (rootDeclaration.isPruned) {
+      logger.severe("Root declaration is pruned!")
+    }
+    if (!rootDeclaration.isDone) {
+      logger.severe("Root declaration is not done!")
+    }     
+//    logger.finest("End of apply, reconstruction structures are: " + FormatCombinations(rootDeclaration) )
+    logger.info("Number of combinations found: " + rootDeclaration.getNumberOfCombinations )
+    
+    logApply.exiting(getClass.getName, "apply")
+    }
+    
     // return transformed pruned tree as a result
-    rootDeclaration.toTreeNode 
+    val result = rootDeclaration.toTreeNode
+    
+    // logging
+    if (Rules.isLogging) {
+	logger.fine("Returning from apply with result: " + FormatPrNode(result) )
+    }
+    
+    result
   }
   
 }

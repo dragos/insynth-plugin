@@ -42,6 +42,20 @@ object TreePrinter {
     out.close
   }
   
+  def apply(fileName:String, answer:ContainerNode, decls:List[Declaration], depth:Int){
+    val out = new PrintWriter(new FileWriter(fileName))
+    
+    out.println("Initial decls: ")
+    decls.foreach{
+      decl => out.println(decl)
+    }
+    
+    out.println    
+    printAnswerWithDepth(out, answer, depth)
+    out.flush
+    out.close
+  }  
+  
   def apply(fileName:String, msg:String, answer:ContainerNode, decls:List[Declaration]){
     val out = new PrintWriter(new FileWriter(fileName))
     
@@ -57,6 +71,22 @@ object TreePrinter {
     out.flush
     out.close
   }  
+  
+  def apply(fileName:String, msg:String, answer:ContainerNode, decls:List[Declaration], depth:Int){
+    val out = new PrintWriter(new FileWriter(fileName))
+    
+    out.println("Initial decls: ")
+    decls.foreach{
+      decl => out.println(decl)
+    }
+    
+    out.println
+    out.println(msg)
+    out.println    
+    printAnswerWithDepth(out, answer, depth)
+    out.flush
+    out.close
+  }
   
   def apply(answer:ContainerNode, decls:List[Declaration]){
     val out = new PrintWriter(System.out)
@@ -79,6 +109,13 @@ object TreePrinter {
     printAnswer(out, answer, Set.empty[SimpleNode], 0)
   }
   
+  private def printAnswerWithDepth(out:PrintWriter, answer:ContainerNode, depth:Int) {
+    out.println
+    out.println("Solution:")
+    
+    printAnswerWithDebth(out, answer, Set.empty[SimpleNode], 0, depth)
+  }  
+  
   private def printAnswer(out:PrintWriter, answer:ContainerNode, set:Set[SimpleNode], length:Int) {
       answer.getNodes.foreach{
         simpleNode =>
@@ -97,7 +134,28 @@ object TreePrinter {
           }
       }
   }
-
+  
+  private def printAnswerWithDebth(out:PrintWriter, answer:ContainerNode, set:Set[SimpleNode], length:Int, depth:Int) {
+    if(depth > 0){
+      answer.getNodes.foreach{
+        simpleNode =>
+          if (!set.contains(simpleNode)){          
+            printlnDeclNamesWithIndention(out, simpleNode.getDecls, length)
+            for (val (tpe, container) <- simpleNode.getParams) {
+              val tpeName = "["+tpe.toString+ "]"
+              printlnWithIndention(out, tpeName, length)
+              printlnWithIndention(out, "|", length + 4)
+              printlnWithIndention(out, "V", length + 4)
+              printAnswerWithDebth(out, container, set + simpleNode, length + 4, depth-1)
+            }
+          } else {
+            printWithIndention(out, "Visited ", length)
+            printlnDeclNamesWithIndention(out, simpleNode.getDecls, 0)
+          }
+      }
+    }
+  }
+  
   private def printlnWithIndention(out:PrintWriter, text:String, length:Int){
     for(i <- 0 until length) out.print(" ")
     out.println(text)

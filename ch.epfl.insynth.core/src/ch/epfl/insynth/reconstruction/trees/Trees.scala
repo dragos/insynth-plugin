@@ -17,7 +17,7 @@ trait Typable {
  * abstract tree node
  * is capable of returning its type and to format itself
  */
-abstract class Node extends Typable// with FormatableIntermediate
+abstract class Node extends Typable
 
 /**
  * a leaf node, descent down the tree finishes at a subclass of this node 
@@ -61,36 +61,43 @@ case class Abstraction(tpe: Type, vars: List[Variable], subTrees: Set[Node]) ext
   def getType = tpe
 }
 
-///**
-// * trait that defines how are intermediate nodes formated into pretty print documents
-// */
-//trait FormatableIntermediate extends Formatable {
-//  def toDocument: Document = {
-//    import FormatHelpers._
-//
-//    this match {
-//      case Variable(tpe, name) => paren(name :: ": " :: tpe.toString) 
-//      case Identifier(tpe, dec) => dec.getSimpleName
-//      case Application(tpe, params) => {
-//        val headDoc:Document = params.head.head match {
-//          case Variable(_, name) => name
-//          case n => n.toDocument
-//        } 
-//        headDoc :/:
-//        paren(seqToDoc(params.tail, ",", 
-//		  {s: Set[Node] => 
-//          	s.toList match {
-//          	  case List(el) => (el.toDocument)
-//          	  case s:List[Node] => nestedBrackets(seqToDoc(s, "|", { f:Formatable => nestedParen(f.toDocument) }))
-//          	}
-//		  }
-//        ))
-//      }
-//      case Abstraction(tpe, vars, subtrees) =>
-//        paren(
-//          paren(seqToDoc(vars, ",", {d: Formatable => d.toDocument})) :/: "=>" :/:
-//    	  nestedBrackets(subtrees.head.toDocument)
-//		)
-//    }
-//  }
-//}
+/**
+ * how are intermediate nodes formated into pretty print documents
+ */
+object FormatableIntermediate {
+  def apply(node: Node) = new FormatableIntermediate(node)
+}
+
+class FormatableIntermediate(node: Node) extends Formatable {
+  def toDocument = toDocument(node)
+  
+  def toDocument(node: Node): Document = {
+    import FormatHelpers._
+
+    node match {
+      case Variable(tpe, name) => paren(name :: ": " :: tpe.toString) 
+      case Identifier(tpe, dec) => dec.getSimpleName
+      case NullLeaf => "Null"
+      case Application(tpe, params) => {
+        val headDoc:Document = params.head.head match {
+          case Variable(_, name) => name
+          case n => toDocument(n)
+        } 
+        headDoc :/:
+        paren(seqToDoc(params.tail, ",", 
+		  {s: Set[Node] => 
+          	s.toList match {
+          	  case List(el) => (toDocument(el))
+          	  case s:List[Node] => nestedBrackets(seqToDoc(s, "|", { f:Node => nestedParen(toDocument(f)) }))
+          	}
+		  }
+        ))
+      }
+      case Abstraction(tpe, vars, subtrees) =>
+        paren(
+          paren(seqToDoc(vars, ",", {d: Variable => toDocument(d)})) :/: "=>" :/:
+    	  nestedBrackets(toDocument(subtrees.head))
+		)
+    }
+  }
+}

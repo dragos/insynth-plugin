@@ -2,7 +2,6 @@ package ch.epfl.insynth.env
 
 import ch.epfl.insynth.trees._
 import ch.epfl.insynth.env.properties.Properties
-import ch.epfl.insynth.debug.Debug
 
 class TypeAssignment(tpe:Type) {
   assert(tpe != null)
@@ -30,6 +29,7 @@ class TypeAssignment(tpe:Type) {
   
   def addDeclaration(decl: Declaration) {
     decls = decl :: decls
+    properties.setMinWeight(decl.getWeight)
   }
   
   def addRequest(request:Request) {

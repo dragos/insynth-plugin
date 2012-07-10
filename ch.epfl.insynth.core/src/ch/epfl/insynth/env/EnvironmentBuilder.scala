@@ -17,6 +17,10 @@ abstract class EnvironmentBuilder  {
     addDeclaration(new Declaration(name, transform(scalaType), scalaType))
   }
   
+  def addDeclarations(decls:List[Declaration]){
+    decls.foreach(addDeclaration)
+  }
+  
   def addDeclaration(decl:Declaration) {
     val tpe = decl.getType
 

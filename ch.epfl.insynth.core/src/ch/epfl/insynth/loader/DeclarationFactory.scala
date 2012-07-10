@@ -3,7 +3,6 @@ package ch.epfl.insynth.loader
 import ch.epfl.insynth.InSynth
 import ch.epfl.insynth.trees.TypeTransformer
 import ch.epfl.insynth.env.Declaration
-import ch.epfl.insynth.debug.Debug
 
 trait TDeclarationFactory extends TData {
   self:InSynth =>
@@ -26,8 +25,6 @@ trait TDeclarationFactory extends TData {
             
             decl.setObjectName(sdecl.getReceiver.simpleName.toString)
             decl.setBelongsToObject(inObject)
-            
-            Debug("InObject: **"+sdecl.getReceiver.simpleName.toString+"**")
           }
           
           decl.setIsMethod(sdecl.isMethod)
@@ -82,9 +79,88 @@ trait TDeclarationFactory extends TData {
       }     
     }    
   
-    def getCoerctionDecl() {
-    
+    def getCoerctionDecl(coerction:Coerction):Option[Declaration] = {
+      val superTypeOption = ScalaTypeExtractor.getLocalType(coerction.getSupertype)
+      
+      superTypeOption match {
+        case Some(superType) =>
+          val subTypeOption = ScalaTypeExtractor.getLocalType(coerction.getSubtype)          
+          subTypeOption match {
+            case Some(subType) =>
+              val scalaType = ScalaTypeExtractor.getCoerctionType(subType, superType)
+              val inSynthType = TypeTransformer.transform(scalaType)
+              val decl = Declaration("#Coerction#", inSynthType, scalaType)
+              decl.setInheritanceFun(true)
+              Some(decl)
+            case None => None
+          }
+        case None => None
+      }
     }
-  
+    
+ 
+  def getLiteralDecls() = {
+    var decls = List.empty[Declaration]
+    
+    //Add Int literal
+    val scalaIntType = ScalaTypeExtractor.getIntType
+    val insynthIntType = TypeTransformer.transform(scalaIntType)
+    val declInt = Declaration("0", insynthIntType, scalaIntType)
+    declInt.setIsLiteral(true)
+    decls = declInt :: decls      
+    
+    //Add Boolean literal
+    val scalaBooleanType = ScalaTypeExtractor.getBooleanType
+    val insynthBooleanType = TypeTransformer.transform(scalaBooleanType)
+    val declBoolean = Declaration("false", insynthBooleanType, scalaBooleanType)
+    declBoolean.setIsLiteral(true)
+    decls = declBoolean :: decls
+    
+    //Add String literal
+    val scalaStringType = ScalaTypeExtractor.getStringType
+    val insynthStringType = TypeTransformer.transform(scalaStringType)
+    val declString = Declaration("\"?\"", insynthStringType, scalaStringType)
+    declString.setIsLiteral(true)    
+    decls = declString :: decls    
+    
+    //Add Long literal
+    val scalaLongType = ScalaTypeExtractor.getLongType
+    val insynthLongType = TypeTransformer.transform(scalaLongType)
+    val declLong = Declaration("0", insynthLongType, scalaLongType)
+    declLong.setIsLiteral(true)
+    decls = declLong :: decls    
+    
+    //Add Short literal
+    val scalaShortType = ScalaTypeExtractor.getShortType
+    val insynthShortType = TypeTransformer.transform(scalaShortType)
+    val declShort = Declaration("0", insynthShortType, scalaShortType)
+    declShort.setIsLiteral(true)
+    decls = declShort :: decls
+    
+    //Add Double literal
+    val scalaDoubleType = ScalaTypeExtractor.getDoubleType
+    val insynthDoubleType = TypeTransformer.transform(scalaDoubleType)
+    val declDouble = Declaration("0.0", insynthDoubleType, scalaDoubleType)
+    declDouble.setIsLiteral(true)
+    decls = declDouble :: decls
+    
+    //Add Float literal
+    val scalaFloatType = ScalaTypeExtractor.getFloatType
+    val insynthFloatType = TypeTransformer.transform(scalaFloatType)
+    val declFloat = Declaration("0f", insynthFloatType, scalaFloatType)
+    declFloat.setIsLiteral(true)
+    decls = declFloat :: decls
+
+    //Add Char literal
+    val scalaCharType = ScalaTypeExtractor.getCharType
+    val insynthCharType = TypeTransformer.transform(scalaCharType)
+    val declChar = Declaration("'?'", insynthCharType, scalaCharType)
+    declChar.setIsLiteral(true)
+    decls = declChar :: decls 
+    
+    decls
   }
+      
+  }
+ 
 }

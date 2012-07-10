@@ -1,6 +1,7 @@
 package ch.epfl.insynth.env
 
 import ch.epfl.insynth.trees._
+import ch.epfl.scala.trees.{Method => ScalaMethod, Const => ScalaConst , Instance =>ScalaInstance, Function => ScalaFunction}
 import ch.epfl.scala.trees.ScalaType
 
 case class Declaration(val fullName:String, val inSynthType:Type, val scalaType:ScalaType){
@@ -69,6 +70,27 @@ case class Declaration(val fullName:String, val inSynthType:Type, val scalaType:
                         simpleName
                       }
 
+  def getFullNameForWeights = if (_abstract) fullName else fullName+paramsForWeights
+  
+  private def paramsForWeights= {
+    assert(scalaType != null)
+    
+    scalaType match {
+      case ScalaMethod(reciver, paramss, returnType) if (paramss != null) =>
+        val list = paramss.flatten.map{
+          x:ScalaType => x match {
+              case ScalaConst(name) => name
+              case ScalaInstance(name, params) => name
+              case ScalaFunction(params, returnType) => "scala.Function"+params.length
+            }
+        }
+        list.mkString(" ",",","")
+      case _ => ""
+    }
+  }
+  
+  
+  
   def getReturnType = returnType
   
   def getParamTypes = paramTypes

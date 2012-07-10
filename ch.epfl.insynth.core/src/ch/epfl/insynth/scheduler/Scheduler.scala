@@ -3,7 +3,7 @@ package ch.epfl.insynth.scheduler
 import ch.epfl.insynth.env.TypeAssignment
 import ch.epfl.insynth.env.Environment
 import scala.collection.mutable.Queue
-import ch.epfl.insynth.debug.Debug
+import scala.collection.mutable.PriorityQueue
 
 trait Scheduler extends Listener {
   
@@ -39,4 +39,34 @@ class BFSScheduler extends Scheduler {
     val properties = ta.getProperties
     if (!properties.isActive) add(ta)
   }
+}
+
+class WeightScheduler extends Scheduler {
+
+  private var pq = new PriorityQueue[TypeAssignment]()(new Weighting())
+  
+  def hasFinished():Boolean = pq.isEmpty
+  
+  def add(ta:TypeAssignment){
+    val active = ta.getProperties.isActive
+    if (!active) {
+      ta.getProperties.activate()
+      pq.enqueue(ta)
+    }
+  }
+  
+  def next():TypeAssignment = {
+    val ta = pq.dequeue()
+    ta.getProperties.deactivate()
+    ta
+  }
+  
+  def notify(ta:TypeAssignment){
+    val properties = ta.getProperties
+    if (!properties.isActive) add(ta)
+  }
+  
+  class Weighting[T <: TypeAssignment] extends Ordering[T] {
+    def compare(x: T, y: T): Int = y.getProperties.getMinWeight.compare(x.getProperties.getMinWeight)
+  }  
 }

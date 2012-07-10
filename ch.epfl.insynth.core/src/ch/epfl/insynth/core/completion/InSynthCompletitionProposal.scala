@@ -18,62 +18,50 @@ import org.eclipse.jface.text.link.LinkedModeUI.ExitFlags
 import org.eclipse.swt.SWT
 import org.eclipse.jface.text.contentassist.ICompletionProposal
 
-class InSynthCompletitionProposal (completition:String)
+class InSynthCompletitionProposal (completition:String, relevance:Int)
 extends IJavaCompletionProposal with ICompletionProposalExtension with ICompletionProposalExtension6
 {
   def getRelevance = {
-    //println("getRelevance")
-    1000
+    1000 + relevance
   }
   
   def getImage = {
-   //println("getImage")
    null 
   }
     
   def getContextInformation(): IContextInformation ={ 
-    //println("getContextInformation")
     null
   }
   def getDisplayString() = {
-    //println("getDisplayString: "+completition)
     completition
   }
   
   def getStyledDisplayString() = { 
-    //println("getStyledDisplayString")
     new StyledString(completition)
   }
   
   def getAdditionalProposalInfo() = {
-    //println("getAdditionalProposalInfo")
     null
   }
   def getSelection(d: IDocument) = {
-    println("getSelection")
     null
   }
   def apply(d: IDocument) { 
-    println("apply1")
     null
-  }//throw new IllegalStateException("Shouldn't be called") }
+  }
 
   def apply(d: IDocument, trigger: Char, offset: Int){
-    println("apply2")
     d.replace(offset, 0, completition)
   }
   
   def getTriggerCharacters = {
-    println("getTriggerCharacters")
     null
   }
   def getContextInformationPosition = {
-    println("getContextInformationPosition")
     1
   }
   
   def isValidFor(d: IDocument, pos: Int) = {
-    println("isValidFor")
     true
   }
 

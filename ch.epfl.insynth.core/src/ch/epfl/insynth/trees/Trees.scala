@@ -97,6 +97,25 @@ object Type {
   }
 }
 
+case class FormatType(tpe: Type) extends ch.epfl.insynth.print.Formatable {
+  import ch.epfl.insynth.print.FormatHelpers._
+  
+  override def toDocument = toDocument(tpe)
+  
+  def toDocument(tpe: Type): scala.text.Document = {    
+    tpe match {
+      case Const(name) => name
+      case Arrow(TSet(paramList), returnType) => 
+        paren(seqToDoc(paramList, ",", toDocument(_:Type))) :: "→" :: toDocument(returnType)
+      case BottomType => "⊥"
+      case Instance(name, list) => name :: "[" :: seqToDoc(list, ",", toDocument(_:Type)) :: "]" 
+      case _ => throw new UnsupportedOperationException
+    }
+  }
+}
+
+
+
 //------------------------------------------------ Polymorphic Types --------------------------------------------------------//
   
 case class Variable(val name:String) extends Type

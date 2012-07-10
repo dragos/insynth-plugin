@@ -2,7 +2,6 @@ package ch.epfl.insynth.env
 
 import ch.epfl.insynth.trees.TSet
 import ch.epfl.insynth.trees.Type
-import ch.epfl.insynth.debug.Debug
 import ch.epfl.insynth.scheduler.ListenerHolder
 import ch.epfl.insynth.scheduler.Subject
 

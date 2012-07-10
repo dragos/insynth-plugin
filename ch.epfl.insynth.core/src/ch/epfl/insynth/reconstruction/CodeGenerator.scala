@@ -32,7 +32,7 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
   
   object TransformContext extends Enumeration {
     type TransformContext = Value
-    val Expr, App, Par, Arg = Value
+    val Expr, App, Par, Arg, SinglePar = Value
   }
   import TransformContext._
   
@@ -52,6 +52,24 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
         (appId :: paren(params)) 
 	  else
 	    (appId :/: params) 
+    }        
+    def doParenRecApp(receiverDoc: Document, appId: Document, params: Document) = {
+      // to match the empty document
+      val emptyMatch = empty
+      receiverDoc match {
+        //case scala.text.DocNil =>
+        case `emptyMatch` =>
+//	      if (parenthesesRequired) 
+          	// if receiver is empty then we always need this form
+	        appId :: paren(params)
+//		  else
+//		    appId :/: params        
+        case _:Document =>
+	      if (parenthesesRequired) 
+	        (receiverDoc :: "." :: appId :: paren(params)) 
+		  else
+		    (receiverDoc :/: appId :/: params)
+      }
     }        
     def doParen(d: Document) = if (parenthesesRequired) paren(d) else d
     
@@ -110,7 +128,9 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
 	          assert(params(1).size == 1)
 	          assert(params(1).head == NullLeaf)
 	          // set if we need parentheses
-	          parenthesesRequired = params.drop(2).size > 0
+	          parenthesesRequired = 
+	            // if there are any parameters or ctx is as receiver (App)
+	            params.drop(2).size > 0 || ctx == App
         	  // go through all combinations of parameters documents
     		  return (List[Document]() /: getParamsCombinations(params.drop(2))) {
 	    		(list, paramsDoc) => list :+
@@ -118,8 +138,9 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
 			  }	
 	        }
 	        // method is on some object
-	        if (decl.belongsToObject) {	     
-	          assert(params(1) == NullLeaf)     
+	        if (decl.belongsToObject) {	
+	          assert(params(1).size == 1)
+	          assert(params(1).head == NullLeaf)     
         	  // get info about parameters
         	  val paramsInfo = decl.scalaType match {
 	        	case Scala.Method(_, params, _) => params
@@ -128,11 +149,11 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
 	          // set if we need parentheses
 	          parenthesesRequired = params.drop(2).size > 1
         	  // go through all combinations of parameters documents
-    		  return (List[Document]() /: getParamsCombinations(params.drop(2), paramsInfo)) {
+    		  return (List[Document]() /: getParamsCombinations(params.drop(2), paramsInfo, parenthesesRequired)) {
 	    		(list, paramsDoc) => list :+
 				  // TODO when to generate dot and when not??
 				  //group(decl.getObjectName :: "." :: doParen(appIdentifier, paramsDoc))
-				  group(decl.getObjectName :/: doParenApp(appIdentifier, paramsDoc))
+				  group(doParenRecApp(decl.getObjectName, appIdentifier, paramsDoc))
 			  }	
 	        }	          
 	        
@@ -145,7 +166,7 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
         	    (listDocsReceivers, receiver) => {
     	    	  // get documents for the receiver objects (or empty if none is needed)
     	    	  val documentsForThis = {
-    			    if (needsThis)
+    			    if (!needsThis)
 			    	  receiver match {
 			          	case Identifier(_, NormalDeclaration(receiverDecl)) if receiverDecl.isThis =>
 		          		  List(empty)
@@ -177,6 +198,8 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
 	        	  case Scala.Method(_, params, _) => params
 	        	  case _ => throw new RuntimeException("Declared method but scala type is not")
 	        	}
+	        	// currying will handle parentheses if needed
+	        	parenthesesRequired = params.drop(2).size > 1
 	        	// if the method needs this keyword
 	        	val needsThis = decl.hasThis
 	        	(List[Document]() /: params(1)) {
@@ -187,18 +210,18 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
 		        		receiver match {
 				          case Identifier(_, NormalDeclaration(receiverDecl)) if receiverDecl.isThis =>
 				            List(empty)
-				          case _ => transform(receiver, App) map { (_:Document) :: "." }			            
+				          case _ => transform(receiver, App)// map { (_:Document) :: "." }			            
 				        }
-			          else transform(receiver, App) map { (_:Document) :: "." }
+			          else transform(receiver, App)// map { (_:Document) :: "." }
 			        }
 				    // go through all the receiver objects and add to the list
 				    (listDocsReceivers /: documentsForThis) {
 				      (listDocsTransformedReceiver, receiverDoc) => {
 				        // go through all combinations of parameters documents
-			    		(listDocsTransformedReceiver /: getParamsCombinations(params.drop(2), paramsInfo)) {
+			    		(listDocsTransformedReceiver /: getParamsCombinations(params.drop(2), paramsInfo, parenthesesRequired)) {
 			    		  // and add them to the list
 			    		  (listDocsTransformedParameters, paramsDoc) => listDocsTransformedParameters :+
-						    group(receiverDoc :: appIdentifier :: paramsDoc)
+						    group(doParenRecApp(receiverDoc, appIdentifier, paramsDoc))
 			    		}		      
 				      }
 				    }
@@ -213,11 +236,11 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
       }
       // abstraction first creates all of its arguments
       case Abstraction(tpe, vars, subtrees) =>
-	    // NOTE no need for brackets here (since every time we will have one expression)
         assert(vars.size > 0)
+        // check if we need parentheses for variables
         parenthesesRequired = vars.size > 1
         // for all bodies of this abstraction
-        (List[Document]() /: subtrees) {
+        val abstractionResults = (List[Document]() /: subtrees) {
     	  (listOfAbstractions, body) => {
     	    listOfAbstractions ++
     	    // for all transformations of bodies
@@ -233,6 +256,12 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
     	    }
     	  }
         }
+        // return abstraction results
+        // we need brackets only if this abstraction is parameter and it will not have parentheses
+        if (ctx == SinglePar)
+          abstractionResults map { brackets(_:Document) }
+        else 
+          abstractionResults
     }
   }
   
@@ -272,13 +301,13 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
    * @param params parameter list for transform
    * @return list of documents with all parameter combinations
    */
-  private def getParamsCombinations(params: List[Set[Node]]):List[Document] = {
+  private def getParamsCombinations(params: List[Set[Node]], ctx: TransformContext = Par):List[Document] = {
     def getParamsCombinationsRec(listOfPicked: List[Document], params: List[Set[Node]]):List[Document] = {
       params match {
         case List() =>
           List(foldDoc(listOfPicked.tail, ","))
         case set :: list =>
-          (List[Document]() /: transform(set.toList, Par)) {
+          (List[Document]() /: transform(set.toList, ctx)) {
             (listSoFar, el) => {
               listSoFar ++ getParamsCombinationsRec(listOfPicked :+ el, list)
             }
@@ -296,7 +325,7 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
    * @param paramsInfo parameter list information
    * @return list of documents with all parameter combinations
    */
-  private def getParamsCombinations(params: List[Set[Node]], paramsInfo: List[List[Scala.ScalaType]]):List[Document] = {
+  private def getParamsCombinations(params: List[Set[Node]], paramsInfo: List[List[Scala.ScalaType]], parenthesesRequired: Boolean):List[Document] = {
     def getParamsCombinationsRec(
         params: List[Set[Node]],
         paramsInfo: List[List[Scala.ScalaType]]):List[Document] = 
@@ -306,7 +335,7 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
           assert(1 == paramsInfo.size)
           assert(params.size == lastList.size)
           // return the list of transformed last parentheses parameters
-          getParamsCombinations(params) map { paren(_:Document) }
+          getParamsCombinations(params)
         case currentList :: restOfTheList => {
           val currentListDocuments = getParamsCombinations(params take currentList.size)
           // go through all recursively got documents
@@ -314,7 +343,9 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
             (list, currentDocument) =>
               // add the combination with current parentheses documents
               list ++ currentListDocuments map {
-                paren(_:Document) :: currentDocument
+                paren(_:Document) ::
+                // if rest of the list is just one element it will be returned with no parentheses
+                { if (restOfTheList.size == 1) currentDocument else paren(currentDocument) }
               }
           }
         }
@@ -322,7 +353,12 @@ object CodeGenerator extends (Node => List[CodeGenOutput]) {
       }
     }
     
-    getParamsCombinationsRec(params, paramsInfo)
+    // if there is only one parameter and parentheses will not be outputed we have
+    // to transform (potential) abstractions with braces
+    if (params.size == 1 && !parenthesesRequired)
+      getParamsCombinations(params, SinglePar)
+    else
+	  getParamsCombinationsRec(params, paramsInfo)
   }
   
   // ternary operator support

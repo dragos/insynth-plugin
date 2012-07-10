@@ -10,6 +10,31 @@ trait TExtractor{
   import compiler._  
     
 object ScalaTypeExtractor {
+
+    //TODO:This is ugly
+    private var allTypes = Set.empty[Symbol]
+
+    def getAllTypes = allTypes
+    
+    def clear(){
+      allTypes = Set.empty[Symbol]
+    }
+    //Here ends the ugly code
+ 
+  def getIntType = ScalaConst(SugarFree(Int.getClass.getName.replace("$","")))
+  def getBooleanType = ScalaConst(SugarFree(Boolean.getClass.getName.replace("$","")))
+  def getLongType = ScalaConst(SugarFree(Long.getClass.getName.replace("$","")))
+  def getStringType = ScalaConst(SugarFree("".getClass.getName))
+  def getCharType = ScalaConst(SugarFree(Char.getClass.getName.replace("$","")))
+  def getDoubleType = ScalaConst(SugarFree(Double.getClass.getName.replace("$","")))
+  def getFloatType = ScalaConst(SugarFree(Float.getClass.getName.replace("$","")))
+  def getShortType = ScalaConst(SugarFree(Short.getClass.getName.replace("$","")))
+  
+  def getCoerctionType(superType:ScalaType, subType:ScalaType):ScalaType = {
+    assert(superType != null && subType != null)
+    ScalaFunction(List(superType), subType)
+  }  
+    
     
   def getLocalType(tpe:Type):Option[ScalaType] = {
     assert(tpe != null)
@@ -82,8 +107,12 @@ object ScalaTypeExtractor {
 	     
 	  //Base types
 	  case TypeRef(pre: Type, sym: Symbol, args: List[Type]) =>
-	    if (!sym.isTypeParameter) ScalaConst(SugarFree(sym.fullName))	      
-	      else throw new Exception("<<Parametrized types not supported: "+tpe.getClass.getName+">>")
+	    if (!sym.isTypeParameter) {
+	      //TODO:Ugly
+	      allTypes += sym
+	      
+	      ScalaConst(SugarFree(sym.fullName))
+	    } else throw new Exception("<<Parametrized types not supported: "+tpe.getClass.getName+">>")
 	    
 	  case _ => throw new Exception("<<Not supported: "+tpe.getClass.getName+">>") 
     }
