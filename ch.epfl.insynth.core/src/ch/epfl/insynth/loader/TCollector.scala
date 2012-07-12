@@ -59,13 +59,14 @@ class Collector {
     } else {
       if(this.isCompletition(tree))
 	    lastVisitedTree match {
-	    case ValDef(mods, name, tpt:TypeTree, rhs) if(rhs.tpe.typeSymbol.tpe.equals(definitions.NullClass.tpe) 
-		                                              || rhs.tpe.typeSymbol.tpe.equals(NoType))=>  
+	    case ValDef(mods, name, tpt:TypeTree, rhs) =>  
 	      this.info.setFieldToComplete(lastVisitedTree.symbol)
 		  this.info.setDesiredType(tpt.tpe)
 		
 	    case DefDef(mods, name, tparams, vparamss, tpt:TypeTree, rhs) if(rhs.tpe.typeSymbol.tpe.equals(definitions.NullClass.tpe) 
-		                                                                 || rhs.tpe.typeSymbol.tpe.equals(NoType))=>  
+		                                                                 || rhs.tpe.typeSymbol.tpe.equals(NoType))=>
+		  
+		  vparamss.flatten.foreach(param => this.info.addToLocalContext(param.symbol))                                          
 	      this.info.setMethodToComplete(lastVisitedTree.symbol)
 		  this.info.setDesiredType(tpt.tpe)
 		  
